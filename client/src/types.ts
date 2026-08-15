@@ -1,0 +1,112 @@
+export type User = {
+    id: string
+    email: string
+    name: string
+    createdAt: string
+}
+
+export type DataRoom = {
+    id: string
+    ownerId: string
+    name: string
+    description: string | null
+    createdAt: string
+    updatedAt: string
+    users?: { id: string; email: string; name: string }[]
+    userCount?: number
+}
+
+export type Folder = {
+    id: string
+    dataRoomId: string
+    parentFolderId: string | null
+    name: string
+    createdAt: string
+    updatedAt: string
+}
+
+export type FileMeta = {
+    id: string
+    dataRoomId: string
+    folderId: string | null
+    name: string
+    mimeType: string
+    sizeBytes: number
+    createdAt: string
+    updatedAt: string
+}
+
+export type FolderContents = {
+    folders: Folder[]
+    files: FileMeta[]
+    total: number
+}
+
+export type ShareableType = 'DATAROOM' | 'FOLDER' | 'FILE'
+
+export type Share = {
+    id: string
+    shareableType: ShareableType
+    shareableId: string
+    userId: string
+    user?: { id: string; email: string; name: string }
+    createdAt: string
+}
+
+export type RoomStats = {
+    folders: number
+    files: number
+    sizeBytes: number
+}
+
+export type SearchResults = {
+    folders: Folder[]
+    files: FileMeta[]
+    total: number
+}
+
+export type PublicLink = {
+    id: string
+    token: string
+    shareableType: ShareableType
+    shareableId: string
+    url: string
+    createdAt: string
+}
+
+export type AuthResponse = {
+    accessToken: string
+    user: User
+}
+
+export type AuthChallenge = {
+    email: string
+    code?: string
+    sent: boolean
+}
+
+export type DownloadResult = {
+    url: string
+    name: string
+}
+
+export type DeleteFolderResult = {
+    deletedFolders: number
+    deletedFiles: number
+}
+
+export type PublicPayload =
+    | {
+          type: 'DATAROOM'
+          room: { id: string; name: string }
+          contents: FolderContents
+      }
+    | {
+          type: 'FOLDER'
+          folder: { id: string; name: string }
+          contents: FolderContents
+      }
+    | {
+          type: 'FILE'
+          file: FileMeta
+      }

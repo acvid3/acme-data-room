@@ -1,0 +1,113 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+    id           String    @id @default(cuid())
+    email        String    @unique
+    name         String
+    passwordHash String
+    createdAt    DateTime  @default(now())
+    dataRooms    DataRoom[]
+    shares       Share[]
+}
+
+model DataRoom {
+    id          String              @id @default(cuid())
+    ownerId     String
+    name        String
+    description String?
+    visibility  DataRoomVisibility  @default(PRIVATE)
+    createdAt   DateTime            @default(now())
+    updatedAt   DateTime            @updatedAt
+    owner       User      @relation(fields: [ownerId], references: [id])
+    folders     Folder[]
+    files       File[]
+
+    @@index([ownerId])
+}
+
+model Folder {
+    id             String   @id @default(cuid())
+    dataRoomId     String
+    parentFolderId String?
+    name           String
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+    dataRoom       DataRoom @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+    parentFolder   Folder?  @relation("FolderTree", fields: [parentFolderId], references: [id], onDelete: Cascade)
+    childFolders   Folder[] @relation("FolderTree")
+    files          File[]
+
+    @@unique([dataRoomId, parentFolderId, name])
+    @@index([dataRoomId])
+    @@index([parentFolderId])
+}
+
+model File {
+    id          String   @id @default(cuid())
+    dataRoomId  String
+    folderId    String?
+    name        String
+    mimeType    String
+    sizeBytes   Int
+    storageKey  String
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    dataRoom    DataRoom @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+    folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+    @@unique([dataRoomId, folderId, name])
+    @@index([dataRoomId])
+    @@index([folderId])
+}
+
+model Share {
+    id            String       @id @default(cuid())
+    shareableType ShareableType
+    shareableId   String
+    userId        String
+    createdAt     DateTime     @default(now())
+    user          User         @relation(fields: [userId], references: [id])
+
+    @@unique([shareableType, shareableId, userId])
+    @@index([userId])
+}
+
+model PublicLink {
+    id            String       @id @default(cuid())
+    token         String       @unique
+    shareableType ShareableType
+    shareableId   String
+    createdAt     DateTime     @default(now())
+
+    @@index([shareableType, shareableId])
+}
+
+model VerificationCode {
+    id        String   @id @default(cuid())
+    email     String
+    code      String
+    purpose   String
+    createdAt DateTime @default(now())
+    expiresAt DateTime
+    attempts  Int      @default(0)
+
+    @@index([email, purpose, code])
+}
+
+enum ShareableType {
+    DATAROOM
+    FOLDER
+    FILE
+}
+
+enum DataRoomVisibility {
+    PUBLIC
+    PRIVATE
+}
