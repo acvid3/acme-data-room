@@ -37,6 +37,14 @@ if [ -f "$REPO_ROOT/.env" ]; then
   set +a
 fi
 
+# Gmail OTP credentials live in server/.env — load them too.
+if [ -f "$REPO_ROOT/server/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$REPO_ROOT/server/.env"
+  set +a
+fi
+
 : "${RENDER_API_KEY:?RENDER_API_KEY must be set (root .env or environment)}"
 
 # A tiny JSON helper: reads JSON from stdin and prints a nested path.
@@ -270,6 +278,20 @@ fi
 
 # ---------------------------------------------------------------- wire env vars (BEFORE first deploy)
 say "Wiring env vars before first deploy..."
+
+# Optional email-OTP (Gmail) / Google OAuth vars — only when provided in .env.
+# Build a JSON fragment with node (safe escaping); empty if no vars present.
+# The fragment starts with "," and appends each entry, e.g.:
+#   ,\n  {"key": "GOOGLE_CLIENT_ID", "value": "..."},\n  ...
+GMAIL_ENV=$(node -e '
+const env = process.env;
+const keys = ["GOOGLE_CLIENT_ID","GOOGLE_CLIENT_SECRET","GMAIL_REFRESH_TOKEN","GMAIL_FROM"];
+const arr = keys.filter((k) => env[k] && env[k] !== "").map((k) => ({ key: k, value: env[k] }));
+if (arr.length === 0) { console.log(""); process.exit(0); }
+const lines = arr.map((o) => "  " + JSON.stringify(o)).join(",\n");
+console.log(",\n" + lines);
+' 2>/dev/null || true)
+
 render_put_env "/services/$API_SERVICE_ID/env-vars" "$(cat <<JSON
 [
   {"key": "DATABASE_URL", "value": "$DATABASE_URL"},
@@ -280,6 +302,7 @@ render_put_env "/services/$API_SERVICE_ID/env-vars" "$(cat <<JSON
   {"key": "S3_ACCESS_KEY", "value": "$S3_ACCESS_KEY"},
   {"key": "S3_SECRET_KEY", "value": "$S3_SECRET_KEY"},
   {"key": "S3_BUCKET", "value": "$S3_BUCKET"}
+  $GMAIL_ENV
 ]
 JSON
 )" >/dev/null
@@ -327,6 +350,7 @@ render_put_env "/services/$API_SERVICE_ID/env-vars" "$(cat <<JSON
   {"key": "S3_BUCKET", "value": "$S3_BUCKET"},
   {"key": "CORS_ORIGINS", "value": "$WEB_URL"},
   {"key": "PUBLIC_BASE_URL", "value": "$WEB_URL"}
+  $GMAIL_ENV
 ]
 JSON
 )" >/dev/null
