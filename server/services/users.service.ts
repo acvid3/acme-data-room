@@ -7,10 +7,11 @@ export class UsersService {
     constructor(private readonly userRepository: UserRepository) {}
 
     async searchByEmail(email: string): Promise<User[]> {
-        const query = email.trim();
+        const query = email.trim().toLowerCase();
         if (!query) {
             return [];
         }
-        return this.userRepository.searchByEmail(query, 20);
+        const user = await this.userRepository.searchByEmailExact(query);
+        return user ? [user] : [];
     }
 }

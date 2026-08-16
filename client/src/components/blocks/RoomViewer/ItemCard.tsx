@@ -188,7 +188,7 @@ export default function ItemCard({
                                     event.stopPropagation()
                                     onPreview(target.item)
                                 }}
-                                className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
                                 aria-label="Preview"
                             >
                                 <Eye className="size-4" />
@@ -197,7 +197,7 @@ export default function ItemCard({
                         {!isFolder && download && (
                             <button
                                 onClick={handleDownload}
-                                className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
                                 aria-label="Download"
                             >
                                 <Download className="size-4" />
@@ -210,7 +210,7 @@ export default function ItemCard({
                                         event.stopPropagation()
                                         onRename(target)
                                     }}
-                                    className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                    className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
                                     aria-label="Rename"
                                 >
                                     <Pencil className="size-4" />
@@ -220,7 +220,7 @@ export default function ItemCard({
                                         event.stopPropagation()
                                         onDelete(target)
                                     }}
-                                    className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground"
+                                    className="rounded-md p-2 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground"
                                     aria-label="Delete"
                                 >
                                     <Trash2 className="size-4" />
@@ -242,7 +242,7 @@ export default function ItemCard({
                                 event.stopPropagation()
                                 onPreview(target.item)
                             }}
-                            className="absolute right-10 top-2 rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
+                            className="absolute right-10 top-2 rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
                             aria-label="Preview"
                         >
                             <Eye className="size-4" />
@@ -252,7 +252,7 @@ export default function ItemCard({
                     {!isFolder && download && (
                         <button
                             onClick={handleDownload}
-                            className="absolute right-2 top-2 rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
+                            className="absolute right-2 top-2 rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
                             aria-label="Download"
                         >
                             <Download className="size-4" />
@@ -266,7 +266,7 @@ export default function ItemCard({
                                     event.stopPropagation()
                                     onRename(target)
                                 }}
-                                className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
                                 aria-label="Rename"
                             >
                                 <Pencil className="size-4" />
@@ -276,7 +276,7 @@ export default function ItemCard({
                                     event.stopPropagation()
                                     onDelete(target)
                                 }}
-                                className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground"
+                                className="rounded-md p-2 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground"
                                 aria-label="Delete"
                             >
                                 <Trash2 className="size-4" />

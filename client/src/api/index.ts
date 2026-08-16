@@ -34,6 +34,7 @@ export const authApi = {
     requestDeleteAccount: () => api.post<AuthChallenge>('/auth/request-delete-account'),
     deleteAccount: (code: string) =>
         api.delete<{ ok: boolean }>('/auth/delete-account', { code }),
+    logout: () => api.post<{ ok: boolean }>('/auth/logout'),
     me: () => api.get<User>('/auth/me'),
 }
 

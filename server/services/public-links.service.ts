@@ -16,10 +16,21 @@ import type { PublicLink } from '../interfaces/public-links.interfaces';
 import type { ShareableType } from '../interfaces/shares.interfaces';
 import type { FolderContents } from '../interfaces/contents.interfaces';
 import type { Folder } from '../interfaces/folders.interfaces';
-import type { DataRoom, RoomUser } from '../interfaces/data-rooms.interfaces';
+import type { RoomUser } from '../interfaces/data-rooms.interfaces';
 import type { DownloadFileResult, File } from '../interfaces/files.interfaces';
 
 export type FolderStats = { folders: number; files: number; sizeBytes: number };
+
+function maskEmail(email: string): string {
+    const at = email.indexOf('@');
+    if (at <= 0) {
+        return '***';
+    }
+    const local = email.slice(0, at);
+    const domain = email.slice(at);
+    const visible = local.slice(0, 2);
+    return `${visible}***${domain}`;
+}
 
 export interface PublicFolderItem extends Folder {
     stats: FolderStats;
@@ -184,33 +195,6 @@ export class PublicLinksService {
         return { url, name: file.name };
     }
 
-    async join(userId: string, token: string): Promise<DataRoom> {
-        const link = await this.publicLinkRepository.findByToken(token);
-        if (!link) {
-            throw new NotFoundException('Link not found');
-        }
-        const roomId = await findShareableRoomId(this.folderRepository, this.fileRepository, link.shareableType, link.shareableId);
-        if (!roomId) {
-            throw new NotFoundException('Link not found');
-        }
-        await this.assertRoomPublic(roomId);
-
-        const room = await this.dataRoomRepository.findById(roomId);
-        if (!room) {
-            throw new NotFoundException('Link not found');
-        }
-
-        if (room.ownerId !== userId) {
-            const existing = await this.shareRepository.findByUserAndShareable(userId, 'DATAROOM', roomId);
-            if (!existing) {
-                await this.shareRepository.create({ shareableType: 'DATAROOM', shareableId: roomId, userId });
-            }
-        }
-
-        const { users, activeUsers } = await this.roomUsers(roomId);
-        return { ...room, users, userCount: users.length, activeUsers };
-    }
-
     async revoke(userId: string, token: string): Promise<void> {
         const link = await this.publicLinkRepository.findByToken(token);
         if (!link) {
@@ -261,10 +245,10 @@ export class PublicLinksService {
         ]);
         const users: RoomUser[] = [];
         if (owner) {
-            users.push({ id: owner.id, email: owner.email, name: owner.name });
+            users.push({ id: owner.id, email: maskEmail(owner.email), name: owner.name });
         }
-        users.push(...sharedUsers);
-        const present = activeUsers.map((u) => ({ id: u.id, email: u.email, name: u.name }));
+        users.push(...sharedUsers.map((u) => ({ id: u.id, email: maskEmail(u.email), name: u.name })));
+        const present = activeUsers.map((u) => ({ id: u.id, email: maskEmail(u.email), name: u.name }));
         return { users, activeUsers: present };
     }
 

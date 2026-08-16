@@ -52,9 +52,4 @@ export class PublicLinksRoutes {
     download(@Req() req: AuthenticatedRequest, @Param('token') token: string, @Param('fileId') fileId: string) {
         return this.publicLinksController.download(optionalUserId(req), token, fileId);
     }
-
-    @Post('public/:token/join')
-    join(@Req() req: AuthenticatedRequest, @Param('token') token: string) {
-        return this.publicLinksController.join(userIdFromRequest(req), token);
-    }
 }

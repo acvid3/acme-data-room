@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { compare, hash } from 'bcrypt';
 import { sign } from 'jsonwebtoken';
 import { UserRepository } from '../repository/user.repository';
@@ -11,6 +11,7 @@ import { FILE_STORAGE } from '../interfaces/storage.interfaces';
 import type { FileStorage } from '../interfaces/storage.interfaces';
 import { EMAIL_SERVICE } from '../interfaces/email.interfaces';
 import type { EmailService } from '../interfaces/email.interfaces';
+import { requiredJwtSecret, jwtSignOptions } from '../utils/jwt-config';
 import { RegisterDto, LoginDto, VerifyCodeDto, VerifyLoginDto, ForgotPasswordDto, ResetPasswordDto } from '../dto/auth.dto';
 import type { AuthResponse, User } from '../interfaces/auth.interfaces';
 
@@ -39,7 +40,7 @@ export class AuthService {
         const email = body.email.trim().toLowerCase();
         const existing = await this.userRepository.findByEmail(email);
         if (existing) {
-            throw new ConflictException('Email already registered');
+            throw new ConflictException('Registration failed');
         }
 
         const passwordHash = await hash(body.password, BCRYPT_ROUNDS);
@@ -111,7 +112,7 @@ export class AuthService {
         const email = body.email.trim().toLowerCase();
         const user = await this.userRepository.findByEmail(email);
         if (!user) {
-            throw new NotFoundException('No account found for this email');
+            return { email, sent: false };
         }
         const { code, sent } = await this.verificationService.issueCode(email, 'password_reset');
         return { email, code: sent ? undefined : code, sent };
@@ -178,7 +179,7 @@ export class AuthService {
     }
 
     private buildAuthResponse(user: User): AuthResponse {
-        const accessToken = sign({ sub: user.id }, process.env.JWT_SECRET ?? '', { expiresIn: '7d' });
+        const accessToken = sign({ sub: user.id }, requiredJwtSecret(), jwtSignOptions);
         return { accessToken, user };
     }
 }

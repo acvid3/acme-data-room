@@ -1,4 +1,4 @@
-import { API_BASE, getToken } from '@/config'
+import { API_BASE } from '@/config'
 
 export class ApiError extends Error {
     status: number
@@ -16,25 +16,21 @@ type RequestOptions = {
     method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
     body?: unknown
     headers?: Record<string, string>
-    auth?: boolean
     signal?: AbortSignal
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const { method = 'GET', body, headers = {}, auth = true, signal } = options
+    const { method = 'GET', body, headers = {}, signal } = options
 
     const finalHeaders: Record<string, string> = { ...headers }
     if (body !== undefined && !(body instanceof FormData)) {
         finalHeaders['Content-Type'] = 'application/json'
     }
-    if (auth) {
-        const token = getToken()
-        if (token) finalHeaders['Authorization'] = `Bearer ${token}`
-    }
 
     const res = await fetch(`${API_BASE}${path}`, {
         method,
         headers: finalHeaders,
+        credentials: 'include',
         body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
         signal,
     })

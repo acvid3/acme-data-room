@@ -41,7 +41,7 @@ export async function startTestApp(): Promise<TestApp> {
             ...process.env,
             PORT: String(port),
             DATABASE_URL: TEST_DATABASE_URL,
-            JWT_SECRET: process.env.JWT_SECRET ?? 'test-secret',
+            JWT_SECRET: process.env.JWT_SECRET ?? 'test-secret-test-secret-0000000000000000',
             GMAIL_REFRESH_TOKEN: '',
             GMAIL_FROM: '',
         },

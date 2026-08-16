@@ -1,6 +1,5 @@
 import * as React from 'react'
 import { authApi } from '@/api'
-import { clearToken, getToken, setToken } from '@/config'
 import type { AuthChallenge, User } from '@/types'
 
 type AuthContextValue = {
@@ -14,7 +13,7 @@ type AuthContextValue = {
     resetPassword: (email: string, code: string, newPassword: string) => Promise<void>
     requestDeleteAccountCode: () => Promise<AuthChallenge>
     deleteAccount: (code: string) => Promise<void>
-    logout: () => void
+    logout: () => Promise<void>
 }
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined)
@@ -24,21 +23,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = React.useState(true)
 
     React.useEffect(() => {
-        const token = getToken()
-        if (!token) {
-            setLoading(false)
-            return
-        }
         authApi
             .me()
             .then(setUser)
-            .catch(() => clearToken())
+            .catch(() => setUser(null))
             .finally(() => setLoading(false))
     }, [])
 
-    const applyAuth = React.useCallback((token: string, user: User) => {
-        setToken(token)
-        setUser(user)
+    const confirmLogin = React.useCallback(async (email: string, code: string) => {
+        const res = await authApi.verifyLogin(email, code)
+        setUser(res.user)
+    }, [])
+
+    const confirmRegister = React.useCallback(async (email: string, code: string) => {
+        const res = await authApi.verifyCode(email, code)
+        setUser(res.user)
     }, [])
 
     const requestLoginCode = React.useCallback(
@@ -46,26 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         [],
     )
 
-    const confirmLogin = React.useCallback(
-        async (email: string, code: string) => {
-            const res = await authApi.verifyLogin(email, code)
-            applyAuth(res.accessToken, res.user)
-        },
-        [applyAuth],
-    )
-
     const requestRegister = React.useCallback(
         async (email: string, password: string, name: string) =>
             authApi.register(email, password, name),
         [],
-    )
-
-    const confirmRegister = React.useCallback(
-        async (email: string, code: string) => {
-            const res = await authApi.verifyCode(email, code)
-            applyAuth(res.accessToken, res.user)
-        },
-        [applyAuth],
     )
 
     const requestPasswordResetCode = React.useCallback(
@@ -87,12 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const deleteAccount = React.useCallback(async (code: string) => {
         await authApi.deleteAccount(code)
-        clearToken()
         setUser(null)
     }, [])
 
-    const logout = React.useCallback(() => {
-        clearToken()
+    const logout = React.useCallback(async () => {
+        await authApi.logout().catch(() => undefined)
         setUser(null)
     }, [])
 

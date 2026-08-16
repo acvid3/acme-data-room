@@ -13,6 +13,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FilesController } from '../controller/files.controller';
 import { UploadFileFieldsDto, UpdateFileDto } from '../dto/files.dto';
+import { FILE_UPLOAD_LIMITS } from '../services/files.service';
 import { userIdFromRequest, type AuthenticatedRequest } from '../interfaces/request.interfaces';
 
 @Controller('files')
@@ -20,7 +21,7 @@ export class FilesRoutes {
     constructor(private readonly filesController: FilesController) {}
 
     @Post()
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(FileInterceptor('file', FILE_UPLOAD_LIMITS))
     upload(
         @Req() req: AuthenticatedRequest,
         @Body() body: UploadFileFieldsDto,

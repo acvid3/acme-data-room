@@ -62,18 +62,6 @@ export class ShareRepository {
         return shares.map((share) => this.toDto(share));
     }
 
-    async findByUserAndShareable(
-        userId: string,
-        shareableType: ShareableType,
-        shareableId: string,
-    ): Promise<Share | null> {
-        const share = await this.prisma.share.findFirst({
-            where: { userId, shareableType, shareableId },
-            include: { user: { select: { id: true, email: true, name: true } } },
-        });
-        return share ? this.toDto(share) : null;
-    }
-
     async delete(id: string): Promise<void> {
         await this.prisma.share.delete({ where: { id } });
     }

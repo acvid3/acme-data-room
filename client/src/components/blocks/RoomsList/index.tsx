@@ -61,7 +61,7 @@ function RoomCard({
             </Link>
             <button
                 onClick={() => onDelete(room)}
-                className="absolute right-2 top-2 rounded-md p-1.5 text-muted-foreground transition-opacity hover:bg-destructive/10 hover:text-destructive focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                className="absolute right-2 top-2 rounded-md p-2 text-muted-foreground transition-opacity hover:bg-destructive/10 hover:text-destructive focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                 aria-label={`Delete ${room.name}`}
             >
                 <Trash2 className="size-4" />

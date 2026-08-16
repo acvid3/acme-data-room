@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { FileRepository } from '../repository/file.repository';
 import { FolderRepository } from '../repository/folder.repository';
@@ -10,6 +10,46 @@ import { UpdateFileDto } from '../dto/files.dto';
 import { nextAvailableName } from '../utils/name-conflicts';
 import { assertFolderInRoom } from '../utils/shareable';
 import type { DownloadFileResult, File } from '../interfaces/files.interfaces';
+
+export const FILE_UPLOAD_LIMITS = {
+    limits: {
+        fileSize: Number(process.env.MAX_FILE_SIZE_BYTES ?? 50 * 1024 * 1024),
+        files: 1,
+    },
+};
+
+const ALLOWED_MIME_TYPES = new Set([
+    'image/png',
+    'image/jpeg',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    'image/avif',
+    'audio/mpeg',
+    'audio/wav',
+    'audio/ogg',
+    'audio/webm',
+    'audio/mp4',
+    'audio/aac',
+    'audio/flac',
+    'video/mp4',
+    'video/webm',
+    'video/ogg',
+    'video/quicktime',
+    'application/pdf',
+    'application/zip',
+    'application/json',
+    'application/xml',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain',
+    'text/csv',
+    'text/markdown',
+]);
 
 export interface UploadFileInput {
     name: string;
@@ -34,6 +74,9 @@ export class FilesService {
         input: UploadFileInput,
     ): Promise<File> {
         await this.assertRoomAccess(userId, dataRoomId);
+        if (!ALLOWED_MIME_TYPES.has(input.mimeType)) {
+            throw new BadRequestException('File type is not allowed');
+        }
         if (folderId) {
             await assertFolderInRoom(this.folderRepository, folderId, dataRoomId);
         }

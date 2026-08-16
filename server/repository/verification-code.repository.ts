@@ -9,13 +9,14 @@ export class VerificationCodeRepository {
         await this.prisma.verificationCode.create({ data });
     }
 
-    async findValid(email: string, code: string, purpose: string): Promise<{
+    async findLatest(email: string, purpose: string): Promise<{
         id: string;
+        code: string;
         expiresAt: Date;
         attempts: number;
     } | null> {
         return this.prisma.verificationCode.findFirst({
-            where: { email, code, purpose },
+            where: { email, purpose },
             orderBy: { createdAt: 'desc' },
         });
     }

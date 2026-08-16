@@ -40,14 +40,12 @@ export class UserRepository {
         return user ? { ...user, createdAt: user.createdAt.toISOString() } : null;
     }
 
-    async searchByEmail(query: string, limit: number): Promise<User[]> {
-        const users = await this.prisma.user.findMany({
-            where: { email: { contains: query, mode: 'insensitive' } },
+    async searchByEmailExact(email: string): Promise<User | null> {
+        const user = await this.prisma.user.findUnique({
+            where: { email },
             select: { id: true, email: true, name: true, createdAt: true },
-            orderBy: { email: 'asc' },
-            take: limit,
         });
-        return users.map((user) => mapUser(user));
+        return user ? mapUser(user) : null;
     }
 
     async create(data: { email: string; name: string; passwordHash: string }): Promise<User> {

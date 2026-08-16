@@ -1,7 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomInt } from 'crypto';
-import { appendFileSync, mkdirSync } from 'fs';
-import { join } from 'path';
 import { VerificationCodeRepository } from '../repository/verification-code.repository';
 import { EMAIL_SERVICE } from '../interfaces/email.interfaces';
 import type { EmailService } from '../interfaces/email.interfaces';
@@ -33,8 +31,6 @@ export class VerificationService {
             expiresAt: new Date(Date.now() + CODE_EXPIRY_MINUTES * 60_000),
         });
 
-        this.logCode(email, purpose, code);
-
         const subject = purpose === 'password_reset' ? 'Reset your password' : 'Your verification code';
         const sent = await this.emailService.send({
             to: email,
@@ -46,7 +42,7 @@ export class VerificationService {
     }
 
     async verifyCode(email: string, code: string, purpose: string): Promise<boolean> {
-        const record = await this.verificationCodeRepository.findValid(email, code, purpose);
+        const record = await this.verificationCodeRepository.findLatest(email, purpose);
         if (!record) {
             return false;
         }
@@ -59,21 +55,11 @@ export class VerificationService {
             return false;
         }
         await this.verificationCodeRepository.incrementAttempts(record.id);
+        if (record.code !== code) {
+            return false;
+        }
         await this.verificationCodeRepository.delete(record.id);
         return true;
-    }
-
-    private logCode(email: string, purpose: string, code: string): void {
-        try {
-            const dir = join(process.cwd(), 'logs');
-            mkdirSync(dir, { recursive: true });
-            appendFileSync(
-                join(dir, 'codes.log'),
-                `${new Date().toISOString()} [${purpose}] ${email} → ${code}\n`,
-            );
-        } catch {
-            // logging must never break code issuance
-        }
     }
 
     private renderTemplate(purpose: string, code: string): string {

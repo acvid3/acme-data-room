@@ -93,6 +93,23 @@ describe('Auth routes', () => {
             });
             assert.equal(status, 401);
         });
+
+        it('blocks the code after repeated wrong attempts', async () => {
+            const register = await api(base(), 'POST', '/api/auth/register', {
+                body: { email: 'brute@test.com', password: 'secret123', name: 'Brute' },
+            });
+            const code = (register.body as { code: string }).code;
+            for (let i = 0; i < 5; i++) {
+                const wrong = await api(base(), 'POST', '/api/auth/verify-code', {
+                    body: { email: 'brute@test.com', code: '000001' },
+                });
+                assert.equal(wrong.status, 401);
+            }
+            const good = await api(base(), 'POST', '/api/auth/verify-code', {
+                body: { email: 'brute@test.com', code },
+            });
+            assert.equal(good.status, 401);
+        });
     });
 
     describe('POST /api/auth/login + verify-login (2FA)', () => {
@@ -158,11 +175,15 @@ describe('Auth routes', () => {
             assert.equal(login.status, 201);
         });
 
-        it('returns 404 for unknown email on forgot-password', async () => {
-            const { status } = await api(base(), 'POST', '/api/auth/forgot-password', {
+        it('returns a neutral response for unknown email on forgot-password', async () => {
+            const { status, body } = await api(base(), 'POST', '/api/auth/forgot-password', {
                 body: { email: 'nobody@test.com' },
             });
-            assert.equal(status, 404);
+            assert.equal(status, 201);
+            const b = body as { email: string; sent: boolean; code?: string };
+            assert.equal(b.email, 'nobody@test.com');
+            assert.equal(b.sent, false);
+            assert.equal(b.code, undefined);
         });
     });
 
@@ -230,6 +251,46 @@ describe('Auth routes', () => {
                 token: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmYWtlIn0.fake',
             });
             assert.equal(status, 401);
+        });
+    });
+
+    describe('Cookie-based auth', () => {
+        it('sets an httpOnly cookie on verify-code and authenticates /me via cookie', async () => {
+            const email = 'cookie-auth@test.com';
+            const register = await fetch(`${base()}/api/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password: 'secret123', name: 'Cookie' }),
+            });
+            const regBody = (await register.json()) as { code: string };
+
+            const verify = await fetch(`${base()}/api/auth/verify-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, code: regBody.code }),
+            });
+            assert.equal(verify.status, 201);
+            const setCookie = verify.headers.get('set-cookie') ?? '';
+            assert.ok(setCookie.includes('access_token='), 'must set access_token cookie');
+            assert.ok(setCookie.toLowerCase().includes('httponly'), 'cookie must be httpOnly');
+            assert.ok(setCookie.toLowerCase().includes('samesite=lax'), 'cookie must be SameSite=Lax');
+            const cookiePair = setCookie.split(';')[0];
+
+            const me = await fetch(`${base()}/api/auth/me`, { headers: { Cookie: cookiePair } });
+            assert.equal(me.status, 200);
+            const meBody = (await me.json()) as { email: string };
+            assert.equal(meBody.email, email);
+
+            const logout = await fetch(`${base()}/api/auth/logout`, {
+                method: 'POST',
+                headers: { Cookie: cookiePair },
+            });
+            assert.equal(logout.status, 201);
+            const logoutCookie = logout.headers.get('set-cookie') ?? '';
+            assert.ok(
+                logoutCookie.includes('Max-Age=0') || logoutCookie.includes('01 Jan 1970'),
+                'logout must clear the cookie',
+            );
         });
     });
 

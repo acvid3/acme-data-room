@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Post, Req, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { Public } from '../middleware/public.decorator';
 import { AuthController } from '../controller/auth.controller';
 import {
@@ -10,6 +11,7 @@ import {
     ResetPasswordDto,
     DeleteAccountDto,
 } from '../dto/auth.dto';
+import { AUTH_COOKIE, authCookieOptions, clearAuthCookieOptions } from '../utils/jwt-config';
 import { userIdFromRequest, type AuthenticatedRequest } from '../interfaces/request.interfaces';
 
 @Controller('auth')
@@ -24,8 +26,10 @@ export class AuthRoutes {
 
     @Public()
     @Post('verify-code')
-    verifyCode(@Body() body: VerifyCodeDto) {
-        return this.authController.verifyCode(body);
+    async verifyCode(@Res({ passthrough: true }) res: Response, @Body() body: VerifyCodeDto) {
+        const result = await this.authController.verifyCode(body);
+        res.cookie(AUTH_COOKIE, result.accessToken, authCookieOptions());
+        return result;
     }
 
     @Public()
@@ -36,8 +40,10 @@ export class AuthRoutes {
 
     @Public()
     @Post('verify-login')
-    verifyLogin(@Body() body: VerifyLoginDto) {
-        return this.authController.verifyLogin(body);
+    async verifyLogin(@Res({ passthrough: true }) res: Response, @Body() body: VerifyLoginDto) {
+        const result = await this.authController.verifyLogin(body);
+        res.cookie(AUTH_COOKIE, result.accessToken, authCookieOptions());
+        return result;
     }
 
     @Public()
@@ -50,6 +56,12 @@ export class AuthRoutes {
     @Post('reset-password')
     resetPassword(@Body() body: ResetPasswordDto) {
         return this.authController.resetPassword(body);
+    }
+
+    @Post('logout')
+    logout(@Res({ passthrough: true }) res: Response) {
+        res.clearCookie(AUTH_COOKIE, clearAuthCookieOptions());
+        return { ok: true };
     }
 
     @Post('request-delete-account')

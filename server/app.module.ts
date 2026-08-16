@@ -96,6 +96,6 @@ import { VerificationCodeRepository } from './repository/verification-code.repos
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
         consumer.apply(RequestLoggerMiddleware).forRoutes('*');
-        consumer.apply(RateLimitMiddleware).forRoutes('auth');
+        consumer.apply(RateLimitMiddleware).forRoutes(AuthRoutes);
     }
 }

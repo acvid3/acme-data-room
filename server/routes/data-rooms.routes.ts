@@ -16,6 +16,7 @@ import { DataRoomsController } from '../controller/data-rooms.controller';
 import { CreateDataRoomDto, UpdateDataRoomDto } from '../dto/data-rooms.dto';
 import { CreateFolderInRoomDto } from '../dto/folders.dto';
 import { UploadFileInRoomFieldsDto } from '../dto/files.dto';
+import { FILE_UPLOAD_LIMITS } from '../services/files.service';
 import { userIdFromRequest, type AuthenticatedRequest } from '../interfaces/request.interfaces';
 
 @Controller('data-rooms')
@@ -114,7 +115,7 @@ export class DataRoomsRoutes {
     }
 
     @Post(':id/files')
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(FileInterceptor('file', FILE_UPLOAD_LIMITS))
     uploadFile(
         @Req() req: AuthenticatedRequest,
         @Param('id') id: string,

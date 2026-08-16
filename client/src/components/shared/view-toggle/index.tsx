@@ -20,7 +20,7 @@ export function ViewToggle({ value, onChange, className }: ViewToggleProps) {
             <button
                 onClick={() => onChange('grid')}
                 className={cn(
-                    'rounded-md p-1.5 transition-colors',
+                    'rounded-md p-2 transition-colors',
                     value === 'grid'
                         ? 'bg-secondary text-foreground'
                         : 'text-muted-foreground hover:text-foreground',
@@ -33,7 +33,7 @@ export function ViewToggle({ value, onChange, className }: ViewToggleProps) {
             <button
                 onClick={() => onChange('list')}
                 className={cn(
-                    'rounded-md p-1.5 transition-colors',
+                    'rounded-md p-2 transition-colors',
                     value === 'list'
                         ? 'bg-secondary text-foreground'
                         : 'text-muted-foreground hover:text-foreground',

@@ -86,6 +86,14 @@ describe('Files routes', () => {
         assert.ok(b.id);
     });
 
+    it('rejects a disallowed file type with 400', async () => {
+        const form = new FormData();
+        form.append('dataRoomId', room.id);
+        form.append('file', new Blob([Buffer.from('evil')], { type: 'application/x-msdownload' }), 'evil.exe');
+        const { status } = await api(base(), 'POST', '/api/files', { token: user.token, body: form });
+        assert.equal(status, 400);
+    });
+
     it('auto-suffixes a duplicate file name', async () => {
         await uploadFile(base(), {
             token: user.token,
@@ -583,7 +591,7 @@ describe('Public links routes', () => {
         assert.equal(status, 409);
     });
 
-    it('includes the member list when opening a public room', async () => {
+    it('includes the member list when opening a public room (emails masked)', async () => {
         const created = await api(base(), 'POST', '/api/public-links', {
             token: owner.token,
             body: { shareableType: 'DATAROOM', shareableId: room.id },
@@ -594,37 +602,12 @@ describe('Public links routes', () => {
         });
         assert.equal(status, 200);
         const payload = body as { users: Array<{ id: string; email: string }> };
-        assert.ok(payload.users.some((u) => u.email === 'links-owner@test.com'));
-    });
-
-    it('joins a room via the public link and gains access', async () => {
-        const created = await api(base(), 'POST', '/api/public-links', {
-            token: owner.token,
-            body: { shareableType: 'DATAROOM', shareableId: room.id },
-        });
-        const token = (created.body as { token: string }).token;
-        const guest = await registerUser(base(), 'links-guest@test.com');
-        const { status, body } = await api(base(), 'POST', `/api/public/${token}/join`, {
-            token: guest.token,
-        });
-        assert.equal(status, 201);
-        const roomInfo = body as { id: string; users: Array<{ email: string }> };
-        assert.equal(roomInfo.id, room.id);
-        assert.ok(roomInfo.users.some((u) => u.email === 'links-guest@test.com'));
-        const access = await api(base(), 'GET', `/api/data-rooms/${room.id}`, {
-            token: guest.token,
-        });
-        assert.equal(access.status, 200);
-    });
-
-    it('requires auth to join (401 without token)', async () => {
-        const created = await api(base(), 'POST', '/api/public-links', {
-            token: owner.token,
-            body: { shareableType: 'DATAROOM', shareableId: room.id },
-        });
-        const token = (created.body as { token: string }).token;
-        const { status } = await api(base(), 'POST', `/api/public/${token}/join`);
-        assert.equal(status, 401);
+        assert.ok(payload.users.length >= 1);
+        assert.ok(payload.users.every((u) => u.email.includes('***')), 'emails must be masked');
+        assert.ok(
+            payload.users.every((u) => u.email !== 'links-owner@test.com'),
+            'full email must not leak',
+        );
     });
 
     it('includes subtree stats in the public folder payload', async () => {
@@ -771,15 +754,20 @@ describe('User search', () => {
 
     const base = () => ctx.baseUrl;
 
-    it('finds a user by email substring', async () => {
-        const { status, body } = await api(base(), 'GET', '/api/users?email=alice', {
+    it('finds a user only by exact email match', async () => {
+        const exact = await api(base(), 'GET', `/api/users?email=${encodeURIComponent('alice@example.com')}`, {
             token: user.token,
         });
-        assert.equal(status, 200);
-        const users = body as Array<{ id: string; email: string; name: string }>;
-        assert.ok(users.length >= 2);
-        assert.ok(users.every((u) => u.email.includes('alice')));
+        assert.equal(exact.status, 200);
+        const users = exact.body as Array<{ id: string; email: string; name: string }>;
+        assert.equal(users.length, 1);
+        assert.equal(users[0].email, 'alice@example.com');
         assert.ok(users.every((u) => !('passwordHash' in u)));
+
+        const substring = await api(base(), 'GET', '/api/users?email=alice', {
+            token: user.token,
+        });
+        assert.equal((substring.body as unknown[]).length, 0);
     });
 
     it('returns empty for empty query', async () => {

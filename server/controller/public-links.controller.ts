@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { PublicLinksService, PublicLinkOpenResult } from '../services/public-links.service';
 import { CreatePublicLinkDto } from '../dto/shares.dto';
 import type { PageOptions } from '../utils/pagination';
-import type { DataRoom } from '../interfaces/data-rooms.interfaces';
 import type { DownloadFileResult } from '../interfaces/files.interfaces';
 import type { PublicLink } from '../interfaces/public-links.interfaces';
 
@@ -28,9 +27,5 @@ export class PublicLinksController {
 
     download(userId: string | null, token: string, fileId: string): Promise<DownloadFileResult> {
         return this.publicLinksService.download(userId, token, fileId);
-    }
-
-    join(userId: string, token: string): Promise<DataRoom> {
-        return this.publicLinksService.join(userId, token);
     }
 }

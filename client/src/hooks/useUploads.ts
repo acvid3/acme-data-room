@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { API_BASE, getToken } from '@/config'
+import { API_BASE } from '@/config'
 
 export type UploadItem = {
     id: string
@@ -32,8 +32,7 @@ export function useUploads() {
 
                 const xhr = new XMLHttpRequest()
                 xhr.open('POST', `${API_BASE}/files`)
-                const token = getToken()
-                if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+                xhr.withCredentials = true
                 xhr.upload.onprogress = (event) => {
                     if (event.lengthComputable) {
                         update(id, { progress: Math.round((event.loaded / event.total) * 100) })
