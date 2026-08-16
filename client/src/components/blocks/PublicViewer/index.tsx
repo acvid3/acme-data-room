@@ -14,60 +14,14 @@ import ItemCard from '@/components/blocks/RoomViewer/ItemCard'
 import FilePreviewDialog from '@/components/blocks/FilePreviewDialog'
 import { DndProvider } from '@/contexts/dnd'
 import { useViewMode } from '@/hooks/useViewMode'
+import { formatDate, formatSize, formatStats, formatType } from '@/utils/format'
+import { sortItems, type ContentSort } from '@/utils/sort'
 import type { FileMeta, Folder as FolderType, PublicPayload } from '@/types'
 import { cn } from '@/utils/cn'
 
 const PAGE_SIZE = 25
 
-type ContentSort = 'name' | 'updated' | 'size'
 type ContentFilter = 'all' | 'folders' | 'files'
-
-function sortItems<T extends { name: string; updatedAt: string }>(
-    items: T[],
-    sort: ContentSort,
-    direction: SortDirection,
-): T[] {
-    const factor = direction === 'asc' ? 1 : -1
-    return [...items].sort((a, b) => {
-        if (sort === 'size') {
-            const sizeA = 'sizeBytes' in a ? Number((a as Record<string, unknown>).sizeBytes) : 0
-            const sizeB = 'sizeBytes' in b ? Number((b as Record<string, unknown>).sizeBytes) : 0
-            return (sizeA - sizeB) * factor
-        }
-        if (sort === 'updated') {
-            return (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()) * factor
-        }
-        return a.name.localeCompare(b.name) * factor
-    })
-}
-
-function formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatStats(stats: { folders: number; files: number; sizeBytes: number }): string {
-    return [
-        `${stats.folders} ${stats.folders === 1 ? 'folder' : 'folders'}`,
-        `${stats.files} ${stats.files === 1 ? 'file' : 'files'}`,
-        formatSize(stats.sizeBytes),
-    ].join(' · ')
-}
-
-function formatType(mimeType: string): string {
-    if (mimeType === 'application/pdf') return 'PDF'
-    const subtype = mimeType.split('/')[1]
-    return subtype ? subtype.toUpperCase() : mimeType
-}
-
-function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-    })
-}
 
 function FileView({ file }: { file: FileMeta }) {
     return (

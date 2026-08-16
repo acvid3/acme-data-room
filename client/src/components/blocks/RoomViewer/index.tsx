@@ -26,30 +26,11 @@ import UploadButton from './UploadButton'
 import ShareDialog from '@/components/blocks/ShareDialog'
 import FilePreviewDialog from '@/components/blocks/FilePreviewDialog'
 import UpLevelCard from './UpLevelCard'
+import { sortItems, type ContentSort } from '@/utils/sort'
 
 const FILE_PAGE_SIZE = 25
 
-type ContentSort = 'name' | 'updated' | 'size'
 type ContentFilter = 'all' | 'folders' | 'files'
-
-function sortItems<T extends { name: string; updatedAt: string }>(
-    items: T[],
-    sort: ContentSort,
-    direction: SortDirection,
-): T[] {
-    const factor = direction === 'asc' ? 1 : -1
-    return [...items].sort((a, b) => {
-        if (sort === 'size') {
-            const sizeA = 'sizeBytes' in a ? Number((a as Record<string, unknown>).sizeBytes) : 0
-            const sizeB = 'sizeBytes' in b ? Number((b as Record<string, unknown>).sizeBytes) : 0
-            return (sizeA - sizeB) * factor
-        }
-        if (sort === 'updated') {
-            return (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()) * factor
-        }
-        return a.name.localeCompare(b.name) * factor
-    })
-}
 
 function RoomViewerContent() {
     const { roomId = '', folderId } = useParams<{ roomId: string; folderId?: string }>()

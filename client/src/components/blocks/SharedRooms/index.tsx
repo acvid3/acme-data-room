@@ -7,19 +7,11 @@ import { ViewToggle } from '@/components/shared/view-toggle'
 import { SortMenu, type SortDirection } from '@/components/shared/sort-menu'
 import { useSharedRooms } from '@/hooks/useSharedRooms'
 import { useViewMode } from '@/hooks/useViewMode'
+import { formatDate } from '@/utils/format'
+import { sortRooms, type RoomSort } from '@/utils/sort'
 import { cn } from '@/utils/cn'
 
 const PAGE_SIZE = 25
-
-type RoomSort = 'name' | 'created' | 'members'
-
-function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-    })
-}
 
 export default function SharedRooms() {
     const { rooms, total, page, setPage, loading, error } = useSharedRooms(PAGE_SIZE)
@@ -27,18 +19,10 @@ export default function SharedRooms() {
     const [sort, setSort] = React.useState<RoomSort>('name')
     const [direction, setDirection] = React.useState<SortDirection>('asc')
 
-    const sortedRooms = React.useMemo(() => {
-        const factor = direction === 'asc' ? 1 : -1
-        return [...rooms].sort((a, b) => {
-            if (sort === 'created') {
-                return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * factor
-            }
-            if (sort === 'members') {
-                return ((a.userCount ?? 1) - (b.userCount ?? 1)) * factor
-            }
-            return a.name.localeCompare(b.name) * factor
-        })
-    }, [rooms, sort, direction])
+    const sortedRooms = React.useMemo(
+        () => sortRooms(rooms, sort, direction),
+        [rooms, sort, direction],
+    )
 
     const handleSort = (value: RoomSort, dir: SortDirection) => {
         setSort(value)

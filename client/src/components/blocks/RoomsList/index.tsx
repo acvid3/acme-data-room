@@ -8,22 +8,14 @@ import { ViewToggle, type ViewMode } from '@/components/shared/view-toggle'
 import { SortMenu, type SortDirection } from '@/components/shared/sort-menu'
 import { useDataRooms } from '@/hooks/useDataRooms'
 import { useViewMode } from '@/hooks/useViewMode'
+import { formatDate } from '@/utils/format'
+import { sortRooms, type RoomSort } from '@/utils/sort'
 import { cn } from '@/utils/cn'
 import CreateRoomDialog from '@/components/blocks/CreateRoomDialog'
 import DeleteRoomDialog from './DeleteRoomDialog'
 import type { DataRoom } from '@/types'
 
 const PAGE_SIZE = 25
-
-type RoomSort = 'name' | 'created' | 'members'
-
-function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-    })
-}
 
 function RoomCard({
     room,
@@ -86,18 +78,10 @@ export default function RoomsList() {
     const [sort, setSort] = React.useState<RoomSort>('name')
     const [direction, setDirection] = React.useState<SortDirection>('asc')
 
-    const sortedRooms = React.useMemo(() => {
-        const factor = direction === 'asc' ? 1 : -1
-        return [...rooms].sort((a, b) => {
-            if (sort === 'created') {
-                return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * factor
-            }
-            if (sort === 'members') {
-                return ((a.userCount ?? 1) - (b.userCount ?? 1)) * factor
-            }
-            return a.name.localeCompare(b.name) * factor
-        })
-    }, [rooms, sort, direction])
+    const sortedRooms = React.useMemo(
+        () => sortRooms(rooms, sort, direction),
+        [rooms, sort, direction],
+    )
 
     const removeRoom = (id: string) => {
         setRooms((prev) => prev.filter((room) => room.id !== id))

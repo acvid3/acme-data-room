@@ -1,19 +1,11 @@
 import { Users } from 'lucide-react'
+import { initials } from '@/utils/format'
 import type { RoomUser } from '@/types'
 
 type MemberListProps = {
     title: string
     members: RoomUser[]
     highlight?: boolean
-}
-
-function initials(name: string): string {
-    return name
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase())
-        .join('')
 }
 
 export default function MemberList({ title, members, highlight }: MemberListProps) {

@@ -5,6 +5,7 @@ import { fileApi, folderApi } from '@/api'
 import { useDnd, type DraggedItem } from '@/contexts/dnd'
 import type { DownloadResult, FileMeta, Folder as FolderType, RoomStats } from '@/types'
 import type { ViewMode } from '@/components/shared/view-toggle'
+import { formatDate, formatSize, formatType } from '@/utils/format'
 import { cn } from '@/utils/cn'
 
 export type ItemTarget =
@@ -24,26 +25,6 @@ type ItemCardProps = {
     onRename?: (target: ItemTarget) => void
     onDelete?: (target: ItemTarget) => void
     onDrop?: (item: DraggedItem, targetFolderId: string | null) => void
-}
-
-function formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-    })
-}
-
-function formatType(mimeType: string): string {
-    if (mimeType === 'application/pdf') return 'PDF'
-    const subtype = mimeType.split('/')[1]
-    return subtype ? subtype.toUpperCase() : mimeType
 }
 
 function FolderStats({ folder, stats }: { folder: FolderType; stats?: RoomStats }) {

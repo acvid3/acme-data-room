@@ -2,16 +2,9 @@ import * as React from 'react'
 import { AlertTriangle, CalendarDays, Mail, ShieldAlert, Trash2, UserRound } from 'lucide-react'
 import { useAuth } from '@/contexts/auth'
 import { Button } from '@/components/shared/button'
+import { formatDate } from '@/utils/format'
 import DeleteAccountDialog from '@/components/blocks/Auth/DeleteAccountDialog'
 import ChangePassword from './ChangePassword'
-
-function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    })
-}
 
 export default function Profile() {
     const { user } = useAuth()
