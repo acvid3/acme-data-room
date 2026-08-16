@@ -4,7 +4,7 @@ Full-stack Data Room MVP — a take-home project for Acme Corp.'s virtual due di
 An organized, secure repository for storing and distributing documents, inspired by
 Google Drive / Dropbox / Box (the Data Room is the top-level folder).
 
-Full task text: [TASK.md](../TASK.md)
+Full task text: [take-home assignment](https://docs.google.com/document/d/1SPNR14IeFJyZPuQTYxCZ2BY32keu_PQygpCOD5UPl8U/edit?usp=sharing)
 
 ## Highlights
 
@@ -23,8 +23,8 @@ Full task text: [TASK.md](../TASK.md)
 - **No existence leak.** Unauthorized reads/writes return 404, never 403; wrong
   credentials return 401.
 - **Read-only sharing, both modes.** Per-user `Share` (owner grants specific users) and
-  token-based `PublicLink` (anyone with the link), revocable, with read-only enforcement
-  in `AccessService`.
+  token-based `PublicLink` (anyone logged in who has the link), revocable, with read-only
+  enforcement in `AccessService`.
 
 ## Stack
 
@@ -47,9 +47,9 @@ Everything in the task's functional requirements is implemented:
   in the UI (preview modal), rename, move to another folder, delete. Same-name uploads,
   renames, and moves get an auto-suffix (`report (1).pdf`) — no data loss, no crash.
 - **Sharing** — share a Data Room, a folder, or a single file; the recipient gets read-only
-  access including nested content. Two modes: a public link (token, anyone with the link;
-  requires the room to be `PUBLIC`) and a permissioned share (only granted users). The
-  owner can revoke either at any time.
+  access including nested content. Two modes: a public link (token, anyone logged in with
+  the link; requires the room to be `PUBLIC`) and a permissioned share (only granted
+  users). The owner can revoke either at any time.
 - **Search** — case-insensitive search across folder and file names within a Data Room.
 - **Room presence** — who is currently viewing a room (in-memory, 5-min TTL).
 - **Data Rooms** — create/rename/delete your own rooms, view rooms shared with you,
@@ -74,43 +74,60 @@ acme-data-room/
 │   ├── interfaces/    # response/entity TS types
 │   ├── prisma/        # schema + migrations
 │   └── tests/         # server tests + TESTS.md (every test described)
-└── infra/
-    └── CREDENTIALS.md # where to obtain every credential, current status
+└── infra/             # local stack + Render deployment
+    ├── docker-compose.yml   # one-command local stack (Postgres + MinIO + API + gateway)
+    ├── Dockerfile.server|.client|.gateway
+    ├── nginx.conf.template  # single-origin gateway (serves SPA, proxies /api)
+    ├── render.yaml          # Render Blueprint (Postgres + API + nginx gateway)
+    ├── render-deploy.sh     # idempotent deploy via the Render API
+    └── CREDENTIALS.md       # where to obtain every credential, current status
 ```
 
 ## Local development
 
+### Option A — one-command Docker stack (recommended)
+
+Requirements: Docker. Starts Postgres, MinIO, the NestJS API, and the frontend behind a
+single-origin nginx gateway — no Node.js needed.
+
+```bash
+docker compose -f infra/docker-compose.yml up --build
+```
+
+| Service  | URL                        | Access                      |
+| -------- | -------------------------- | --------------------------- |
+| Frontend | http://localhost:5173      | browser (single origin)     |
+| API      | http://localhost:4000      | `POST /api/auth/register`   |
+| MinIO UI | http://localhost:9001      | `minioadmin` / `minioadmin` |
+
+The first registration returns a 6-digit OTP code directly in the API response (email is
+not configured locally) — enter it on the confirmation step. Stop with
+`docker compose -f infra/docker-compose.yml down`.
+
+### Option B — manual (for server development / tests)
+
 Requirements: Node 20+, Docker, npm.
 
 ```bash
-# 1. Start Postgres and MinIO (adjust the ports to match server/.env)
-docker run -d --name acme-dataroom-postgres \
-  -e POSTGRES_USER=dataroom -e POSTGRES_PASSWORD=dataroom -e POSTGRES_DB=dataroom \
-  -p 5432:5432 postgres:16-alpine
+# 1. Postgres + MinIO on the ports server/.env expects (5433 / 9000, 9001)
+docker compose -f infra/docker-compose.yml up -d postgres minio minio-init
 
-docker run -d --name acme-dataroom-minio \
-  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-  -p 9000:9000 -p 9001:9001 \
-  minio/minio server /data --console-address ":9001"
-
-# 2. Create the S3 bucket (console: http://localhost:9001, minioadmin/minioadmin)
-docker exec acme-dataroom-minio sh -c \
-  'mkdir -p /data/acme-dataroom'
-
-# 3. Env files
+# 2. Env files
 cp .env.example .env
 cp .env.example server/.env    # API reads DATABASE_URL, S3_*, JWT_SECRET, GMAIL_*
 
-# 4. Install + migrate
+# 3. Install + migrate + run the API
 cd server && npm install
 npx prisma migrate dev
-
-# 5. Run the API
 npm run start:dev
 #   API  → http://localhost:4000
 #   MinIO console → http://localhost:9001 (minioadmin / minioadmin)
 
-# 6. Server tests (build + reset test DB + boot compiled server + HTTP tests)
+# 4. Frontend (separate terminal) — talks to :4000 over CORS (CORS_ORIGINS)
+#    with same-site cookies; the gateway origin is :5173
+cd client && npm install && npm run dev
+
+# 5. Server tests (build + reset test DB + boot compiled server + HTTP tests)
 cd server && npm test
 ```
 
@@ -150,8 +167,8 @@ shares, and public links, including read-only enforcement for share recipients.
   read-only by construction.
 - **Read-only sharing.** `AccessService.canRead` returns true for the owner or any user
   with a matching `Share` (exact item, ancestor folder, or the room); `PublicLink` is
-  token-based, unauthenticated, and requires a `PUBLIC` room. Writes always go through
-  owner-only checks.
+  token-based, requires a logged-in viewer (anonymous → 404), and requires a `PUBLIC` room.
+  Writes always go through owner-only checks.
 - **Deletes clean up storage.** Deleting a room, folder, or file removes DB rows (FK
   `ON DELETE CASCADE`) and then deletes the backing S3 objects (failures are swallowed so a
   transient storage error never leaves a partial DB state); folder deletion returns the
@@ -309,18 +326,32 @@ Residual findings from the security audit — none blocking, but worth knowing b
 - **Rotate local secrets before sharing.** Working tokens currently live in the local,
   git-ignored `.env` files (`GH_TOKEN`, `VERCEL_TOKEN`, `RENDER_API_KEY`, Gmail refresh
   token, B2 application key). They were never committed (`.env*` is in `.gitignore`), but
-  revoke and reissue them if the machine or repo is ever shared. On production, set
-  `NODE_ENV=production` so the auth cookie is issued with `Secure`.
+  revoke and reissue them if the machine or repo is ever shared. The deployed API already
+  runs with `NODE_ENV=production`, so its auth cookie is issued with `Secure`.
 
 ## Deployment
 
-> Not yet deployed. Live URLs go here once deployed.
+Deployed on **Render** (free tier, region `oregon`):
 
-- Frontend: _pending_ — recommended Vercel (React + Vite SPA).
-- Backend: _pending_ — recommended Render (NestJS) + managed Postgres; object storage in
-  Backblaze B2.
-- Env checklist before shipping: `DATABASE_URL` (managed Postgres + `prisma migrate
-  deploy`), fresh `JWT_SECRET` (≥ 32 chars), `S3_*` for B2, `GMAIL_*` for codes,
-  `CORS_ORIGINS` pointing at the deployed frontend, `NODE_ENV=production` so the auth cookie
-  is `Secure`. See [infra/CREDENTIALS.md](./infra/CREDENTIALS.md) for where every value
-  comes from.
+- App (single origin): **https://acme-dataroom-web.onrender.com**
+- API (direct): **https://acme-dataroom-api-16fy.onrender.com**
+- Database: Postgres `acme-dataroom-postgres` (managed)
+- Object storage: Backblaze B2 (`acme-dataroom` bucket)
+- Email-OTP: Gmail configured — verification codes are emailed (`GMAIL_FROM`)
+
+The deployment uses a **single origin**: the `acme-dataroom-web` service is an nginx
+gateway (`infra/Dockerfile.gateway` + `infra/nginx.conf.template`) that serves the built
+frontend (built with `VITE_API_BASE=/api`) and proxies `/api/*` to the API service. The
+browser only ever talks to the gateway, so the `SameSite=Lax` auth cookie is stored and
+sent correctly — splitting frontend and API across separate subdomains would break it.
+
+Redeploy with the idempotent script (wires cross-service URLs):
+
+```bash
+./infra/render-deploy.sh
+```
+
+or via the Render Blueprint `infra/render.yaml` (Dashboard → New Blueprint Instance →
+select the repo). Secrets (`S3_*`, `GMAIL_*`, `GOOGLE_*`) are prompted on first creation
+(`sync: false`) and never enter git. Details and the credential checklist are in
+[infra/CREDENTIALS.md](./infra/CREDENTIALS.md).

@@ -4,8 +4,8 @@
 #   - Postgres           acme-dataroom-postgres
 #   - API (NestJS)       acme-dataroom-api
 #   - Gateway (nginx)    acme-dataroom-web  — serves the SPA and proxies /api
-#     to the API over Render's private network, so the app lives on ONE origin
-#     and the SameSite=Lax auth cookie works.
+#     to the API's public URL, so the app lives on ONE origin and the
+#     SameSite=Lax auth cookie works.
 #
 # Deploy:
 #   Option A — Render Dashboard:
@@ -17,7 +17,9 @@
 # Notes:
 #   - Secrets (S3_ACCESS_KEY, S3_SECRET_KEY, GMAIL_*, GOOGLE_*) are prompted
 #     on first blueprint creation (`sync: false`) — never commit them here.
-#   - API_UPSTREAM resolves to the API service's internal host:port at sync time.
+#   - API_HOST resolves to the API service's public hostname at sync time.
+#     The gateway proxies /api over the public internet (Render's free plan
+#     doesn't allow private-network ingress; port 10000 is reserved).
 
 databases:
   - name: acme-dataroom-postgres
