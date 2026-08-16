@@ -11,6 +11,7 @@ import type {
     PublicLink,
     PublicPayload,
     RoomStats,
+    RoomVisibility,
     SearchResults,
     Share,
     ShareableType,
@@ -52,9 +53,11 @@ export const roomApi = {
         return api.get<unknown>(`/data-rooms/shared?${params.toString()}`)
     },
     get: (id: string) => api.get<DataRoom>(`/data-rooms/${id}`),
-    create: (name: string, description?: string) =>
-        api.post<DataRoom>('/data-rooms', { name, description }),
+    create: (name: string, description?: string, visibility?: RoomVisibility) =>
+        api.post<DataRoom>('/data-rooms', { name, description, visibility }),
     rename: (id: string, name: string) => api.patch<DataRoom>(`/data-rooms/${id}`, { name }),
+    setVisibility: (id: string, visibility: RoomVisibility) =>
+        api.patch<DataRoom>(`/data-rooms/${id}`, { visibility }),
     remove: (id: string) => api.delete<{ ok: boolean }>(`/data-rooms/${id}`),
     contents: (roomId: string, folderId?: string, limit?: number, offset?: number) => {
         const params = new URLSearchParams()
@@ -120,9 +123,7 @@ export const publicLinkApi = {
         if (limit !== undefined) params.set('limit', String(limit))
         if (offset !== undefined) params.set('offset', String(offset))
         const query = params.toString()
-        return api.get<PublicPayload>(query ? `/public/${token}?${query}` : `/public/${token}`, {
-            auth: false,
-        })
+        return api.get<PublicPayload>(query ? `/public/${token}?${query}` : `/public/${token}`)
     },
     openFolder: (token: string, folderId: string, limit?: number, offset?: number) => {
         const params = new URLSearchParams()
@@ -131,8 +132,9 @@ export const publicLinkApi = {
         const query = params.toString()
         return api.get<PublicPayload>(
             query ? `/public/${token}/folders/${folderId}?${query}` : `/public/${token}/folders/${folderId}`,
-            { auth: false },
         )
     },
+    download: (token: string, fileId: string) =>
+        api.get<DownloadResult>(`/public/${token}/files/${fileId}/download`),
     revoke: (token: string) => api.delete<{ ok: boolean }>(`/public-links/${token}`),
 }

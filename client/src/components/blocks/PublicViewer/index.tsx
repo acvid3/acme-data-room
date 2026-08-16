@@ -1,17 +1,26 @@
 import * as React from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ChevronRight, FileText, Folder, Link2, Loader2 } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ChevronRight, FileText, Folder, Link2, Loader2, Search, X } from 'lucide-react'
 import { ApiError } from '@/api/client'
 import { publicLinkApi } from '@/api'
 import { CardGrid } from '@/components/shared/card-grid'
 import { Pagination } from '@/components/shared/pagination'
 import { SortMenu, type SortDirection } from '@/components/shared/sort-menu'
+import { FilterMenu } from '@/components/shared/filter-menu'
+import { ViewToggle } from '@/components/shared/view-toggle'
+import { Input } from '@/components/shared/input'
+import MemberList from '@/components/shared/member-list'
+import ItemCard from '@/components/blocks/RoomViewer/ItemCard'
+import FilePreviewDialog from '@/components/blocks/FilePreviewDialog'
+import { DndProvider } from '@/contexts/dnd'
+import { useViewMode } from '@/hooks/useViewMode'
 import type { FileMeta, Folder as FolderType, PublicPayload } from '@/types'
 import { cn } from '@/utils/cn'
 
 const PAGE_SIZE = 25
 
 type ContentSort = 'name' | 'updated' | 'size'
+type ContentFilter = 'all' | 'folders' | 'files'
 
 function sortItems<T extends { name: string; updatedAt: string }>(
     items: T[],
@@ -38,6 +47,14 @@ function formatSize(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function formatStats(stats: { folders: number; files: number; sizeBytes: number }): string {
+    return [
+        `${stats.folders} ${stats.folders === 1 ? 'folder' : 'folders'}`,
+        `${stats.files} ${stats.files === 1 ? 'file' : 'files'}`,
+        formatSize(stats.sizeBytes),
+    ].join(' · ')
+}
+
 function formatType(mimeType: string): string {
     if (mimeType === 'application/pdf') return 'PDF'
     const subtype = mimeType.split('/')[1]
@@ -50,42 +67,6 @@ function formatDate(iso: string): string {
         day: 'numeric',
         year: 'numeric',
     })
-}
-
-function FolderCard({ folder, onOpen }: { folder: FolderType; onOpen: (folder: FolderType) => void }) {
-    return (
-        <button
-            onClick={() => onOpen(folder)}
-            className="group flex flex-col gap-3 rounded-lg border bg-card p-4 text-left transition-colors hover:bg-accent"
-        >
-            <div className="flex size-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
-                <Folder className="size-5" />
-            </div>
-            <div className="min-w-0">
-                <p className="truncate font-medium group-hover:text-primary">{folder.name}</p>
-                <p className="truncate text-xs text-muted-foreground">Folder</p>
-            </div>
-        </button>
-    )
-}
-
-function FileCard({ file }: { file: FileMeta }) {
-    return (
-        <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <FileText className="size-5" />
-            </div>
-            <div className="min-w-0">
-                <p className="truncate font-medium">{file.name}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                    {formatType(file.mimeType)} · {formatSize(file.sizeBytes)}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                    Updated {formatDate(file.updatedAt)}
-                </p>
-            </div>
-        </div>
-    )
 }
 
 function FileView({ file }: { file: FileMeta }) {
@@ -152,13 +133,18 @@ function Breadcrumbs({ rootName, path, onNavigate }: BreadcrumbsProps) {
     )
 }
 
-export default function PublicViewer() {
+function PublicViewerContent() {
     const { token } = useParams<{ token: string }>()
+    const navigate = useNavigate()
     const [payload, setPayload] = React.useState<PublicPayload | null>(null)
     const [path, setPath] = React.useState<FolderType[]>([])
     const [page, setPage] = React.useState(1)
+    const [previewFile, setPreviewFile] = React.useState<FileMeta | null>(null)
     const [sort, setSort] = React.useState<ContentSort>('name')
     const [direction, setDirection] = React.useState<SortDirection>('asc')
+    const [filter, setFilter] = React.useState<ContentFilter>('all')
+    const [searchQuery, setSearchQuery] = React.useState('')
+    const { view, setView } = useViewMode('public')
     const [loading, setLoading] = React.useState(true)
     const [error, setError] = React.useState<string | null>(null)
 
@@ -176,11 +162,15 @@ export default function PublicViewer() {
                     setPage(1)
                 })
                 .catch((err) => {
+                    if (err instanceof ApiError && err.status === 404) {
+                        navigate('/login', { replace: true, state: { from: window.location.pathname } })
+                        return
+                    }
                     setError(err instanceof ApiError ? err.message : 'Link could not be opened.')
                 })
                 .finally(() => setLoading(false))
         },
-        [],
+        [navigate],
     )
 
     React.useEffect(() => {
@@ -219,6 +209,10 @@ export default function PublicViewer() {
         request(PAGE_SIZE, (nextPage - 1) * PAGE_SIZE)
             .then(setPayload)
             .catch((err) => {
+                if (err instanceof ApiError && err.status === 404) {
+                    navigate('/login', { replace: true, state: { from: window.location.pathname } })
+                    return
+                }
                 setError(err instanceof ApiError ? err.message : 'Link could not be opened.')
             })
             .finally(() => setLoading(false))
@@ -273,8 +267,17 @@ export default function PublicViewer() {
 
     const rootName = payload.type === 'DATAROOM' ? payload.room.name : payload.folder.name
 
-    const sortedFolders = sortItems(payload.contents.folders, sort, direction)
-    const sortedFiles = sortItems(payload.contents.files, sort, direction)
+    const query = searchQuery.trim().toLowerCase()
+    const matches = (name: string) => !query || name.toLowerCase().includes(query)
+
+    const visibleFolders =
+        filter === 'files'
+            ? []
+            : sortItems(payload.contents.folders.filter((folder) => matches(folder.name)), sort, direction)
+    const visibleFiles =
+        filter === 'folders'
+            ? []
+            : sortItems(payload.contents.files.filter((file) => matches(file.name)), sort, direction)
 
     return (
         <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
@@ -297,48 +300,133 @@ export default function PublicViewer() {
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex flex-wrap items-center gap-1">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
                     <Breadcrumbs rootName={rootName} path={path} onNavigate={handleNavigate} />
+                    {payload.stats && (
+                        <span className="text-xs text-muted-foreground">
+                            {formatStats(payload.stats)}
+                        </span>
+                    )}
                 </div>
-                <SortMenu
-                    options={[
-                        { value: 'name', label: 'Name' },
-                        { value: 'updated', label: 'Last updated', ascLabel: 'Oldest first', descLabel: 'Newest first' },
-                        { value: 'size', label: 'Size', ascLabel: 'Smallest first', descLabel: 'Largest first' },
-                    ]}
-                    value={sort}
-                    direction={direction}
-                    onSort={handleSort}
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            value={searchQuery}
+                            onChange={(event) => setSearchQuery(event.target.value)}
+                            placeholder="Search files and folders..."
+                            className="w-full pl-9 pr-8 sm:w-56"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                aria-label="Clear search"
+                            >
+                                <X className="size-4" />
+                            </button>
+                        )}
+                    </div>
+                    <SortMenu
+                        options={[
+                            { value: 'name', label: 'Name' },
+                            { value: 'updated', label: 'Last updated', ascLabel: 'Oldest first', descLabel: 'Newest first' },
+                            { value: 'size', label: 'Size', ascLabel: 'Smallest first', descLabel: 'Largest first' },
+                        ]}
+                        value={sort}
+                        direction={direction}
+                        onSort={handleSort}
+                    />
+                    <FilterMenu
+                        options={[
+                            { value: 'all', label: 'All items' },
+                            { value: 'folders', label: 'Folders' },
+                            { value: 'files', label: 'Files' },
+                        ]}
+                        value={filter}
+                        onFilter={setFilter}
+                    />
+                    <ViewToggle value={view} onChange={setView} />
+                </div>
             </div>
 
-            {payload.contents.folders.length === 0 && payload.contents.files.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-16 text-center">
-                    <Folder className="size-10 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">This location is empty.</p>
-                </div>
-            ) : (
-                <>
-                    <CardGrid>
-                        {sortedFolders.map((folder) => (
-                            <FolderCard key={folder.id} folder={folder} onOpen={handleOpenFolder} />
-                        ))}
-                        {sortedFiles.map((file) => (
-                            <FileCard key={file.id} file={file} />
-                        ))}
-                    </CardGrid>
-                    {payload.contents.total > PAGE_SIZE && (
-                        <Pagination
-                            page={page}
-                            pageSize={PAGE_SIZE}
-                            total={payload.contents.total}
-                            onPageChange={handlePageChange}
-                            className="pt-2"
-                        />
+            <div className="flex flex-col gap-6 lg:flex-row">
+                <div className="min-w-0 flex-1">
+                    {visibleFolders.length === 0 && visibleFiles.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-16 text-center">
+                            <Folder className="size-10 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground">
+                                {query ? 'No matches found.' : 'This location is empty.'}
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            <CardGrid view={view}>
+                                {visibleFolders.map((folder) => (
+                                    <ItemCard
+                                        key={folder.id}
+                                        roomId={folder.dataRoomId}
+                                        target={{ type: 'folder', item: folder }}
+                                        view={view}
+                                        readOnly
+                                        folderStats={folder.stats}
+                                        onOpenFolder={handleOpenFolder}
+                                    />
+                                ))}
+                                {visibleFiles.map((file) => (
+                                    <ItemCard
+                                        key={file.id}
+                                        roomId={file.dataRoomId}
+                                        target={{ type: 'file', item: file }}
+                                        view={view}
+                                        readOnly
+                                        onDownload={(f) => (token ? publicLinkApi.download(token, f.id) : Promise.reject(new Error('Missing token')))}
+                                        onPreview={setPreviewFile}
+                                    />
+                                ))}
+                            </CardGrid>
+                            {payload.contents.total > PAGE_SIZE && (
+                                <Pagination
+                                    page={page}
+                                    pageSize={PAGE_SIZE}
+                                    total={payload.contents.total}
+                                    onPageChange={handlePageChange}
+                                    className="pt-2"
+                                />
+                            )}
+                        </>
                     )}
-                </>
+                </div>
+
+                {payload.type === 'DATAROOM' && (
+                    <aside className="w-full max-w-xs shrink-0 space-y-4 rounded-lg border bg-card p-4">
+                        <MemberList
+                            title="People in this room"
+                            members={payload.activeUsers}
+                            highlight
+                        />
+                        <MemberList title="Invited" members={payload.users} />
+                    </aside>
+                )}
+            </div>
+
+            {previewFile && token && (
+                <FilePreviewDialog
+                    file={previewFile}
+                    open={previewFile !== null}
+                    onOpenChange={(open) => !open && setPreviewFile(null)}
+                    onFetchUrl={() => publicLinkApi.download(token, previewFile.id)}
+                />
             )}
         </div>
+    )
+}
+
+export default function PublicViewer() {
+    return (
+        <DndProvider>
+            <PublicViewerContent />
+        </DndProvider>
     )
 }

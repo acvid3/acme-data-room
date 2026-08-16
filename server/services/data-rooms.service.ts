@@ -7,6 +7,7 @@ import { ShareRepository } from '../repository/share.repository';
 import { FoldersService } from './folders.service';
 import { FilesService, UploadFileInput } from './files.service';
 import { AccessService } from './access.service';
+import { PresenceService } from './presence.service';
 import { FILE_STORAGE } from '../interfaces/storage.interfaces';
 import type { FileStorage } from '../interfaces/storage.interfaces';
 import { CreateDataRoomDto, UpdateDataRoomDto } from '../dto/data-rooms.dto';
@@ -29,6 +30,7 @@ export class DataRoomsService {
         private readonly foldersService: FoldersService,
         private readonly filesService: FilesService,
         private readonly accessService: AccessService,
+        private readonly presenceService: PresenceService,
         @Inject(FILE_STORAGE) private readonly storage: FileStorage,
     ) {}
 
@@ -125,6 +127,7 @@ export class DataRoomsService {
     ): Promise<FolderContents> {
         const { limit, offset } = normalizePage(options);
         await this.assertReadable(userId, 'DATAROOM', id);
+        this.presenceService.touch(id, userId);
         if (parentFolderId) {
             await assertFolderInRoom(this.folderRepository, parentFolderId, id);
         }
@@ -175,16 +178,19 @@ export class DataRoomsService {
     }
 
     private async withUsers(room: DataRoom): Promise<DataRoom> {
-        const [owner, sharedUsers] = await Promise.all([
+        const activeIds = this.presenceService.activeUserIds(room.id);
+        const [owner, sharedUsers, activeUsers] = await Promise.all([
             this.userRepository.findById(room.ownerId),
             this.shareRepository.findUsersByShareable('DATAROOM', room.id),
+            activeIds.length > 0 ? this.userRepository.findByIds(activeIds) : Promise.resolve([]),
         ]);
         const users: RoomUser[] = [];
         if (owner) {
             users.push({ id: owner.id, email: owner.email, name: owner.name });
         }
         users.push(...sharedUsers);
-        return { ...room, users, userCount: users.length };
+        const present = activeUsers.map((u) => ({ id: u.id, email: u.email, name: u.name }));
+        return { ...room, users, userCount: users.length, activeUsers: present };
     }
 
     private async assertOwned(ownerId: string, roomId: string): Promise<void> {

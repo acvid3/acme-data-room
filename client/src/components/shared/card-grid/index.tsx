@@ -42,6 +42,48 @@ export function CardGrid({ children, view = 'grid', className }: CardGridProps) 
         }
     }, [view])
 
+    React.useEffect(() => {
+        const container = containerRef.current
+        if (!container) return
+
+        let rafId = 0
+
+        const handleDragOver = (event: DragEvent) => {
+            const rect = container.getBoundingClientRect()
+            const cursorY = event.clientY - rect.top
+            const edge = 80
+            const scrollStep = 12
+
+            cancelAnimationFrame(rafId)
+
+            const step = () => {
+                if (cursorY < edge) {
+                    container.scrollTop -= scrollStep
+                    rafId = requestAnimationFrame(step)
+                } else if (cursorY > rect.height - edge) {
+                    container.scrollTop += scrollStep
+                    rafId = requestAnimationFrame(step)
+                }
+            }
+
+            if (cursorY < edge || cursorY > rect.height - edge) {
+                rafId = requestAnimationFrame(step)
+            }
+        }
+
+        const stopAutoScroll = () => cancelAnimationFrame(rafId)
+
+        container.addEventListener('dragover', handleDragOver)
+        container.addEventListener('dragleave', stopAutoScroll)
+        container.addEventListener('drop', stopAutoScroll)
+        return () => {
+            container.removeEventListener('dragover', handleDragOver)
+            container.removeEventListener('dragleave', stopAutoScroll)
+            container.removeEventListener('drop', stopAutoScroll)
+            cancelAnimationFrame(rafId)
+        }
+    }, [])
+
     return (
         <div
             ref={containerRef}

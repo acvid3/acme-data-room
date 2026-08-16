@@ -35,5 +35,5 @@ export function useRoomContents(roomId: string, folderId?: string, options: UseR
         reload()
     }, [reload])
 
-    return { room, contents, setContents, loading, error, reload }
+    return { room, setRoom, contents, setContents, loading, error, reload }
 }

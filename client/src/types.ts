@@ -5,14 +5,24 @@ export type User = {
     createdAt: string
 }
 
+export type RoomUser = {
+    id: string
+    email: string
+    name: string
+}
+
+export type RoomVisibility = 'PUBLIC' | 'PRIVATE'
+
 export type DataRoom = {
     id: string
     ownerId: string
     name: string
     description: string | null
+    visibility: RoomVisibility
     createdAt: string
     updatedAt: string
-    users?: { id: string; email: string; name: string }[]
+    users?: RoomUser[]
+    activeUsers?: RoomUser[]
     userCount?: number
 }
 
@@ -59,6 +69,16 @@ export type RoomStats = {
     sizeBytes: number
 }
 
+export type PublicFolderItem = Folder & {
+    stats: RoomStats
+}
+
+export type PublicFolderContents = {
+    folders: PublicFolderItem[]
+    files: FileMeta[]
+    total: number
+}
+
 export type SearchResults = {
     folders: Folder[]
     files: FileMeta[]
@@ -99,14 +119,21 @@ export type PublicPayload =
     | {
           type: 'DATAROOM'
           room: { id: string; name: string }
-          contents: FolderContents
+          contents: PublicFolderContents
+          stats: RoomStats
+          users: RoomUser[]
+          activeUsers: RoomUser[]
       }
     | {
           type: 'FOLDER'
           folder: { id: string; name: string }
-          contents: FolderContents
+          roomId: string
+          contents: PublicFolderContents
+          stats: RoomStats
       }
     | {
           type: 'FILE'
           file: FileMeta
+          roomId: string
+          url: string
       }

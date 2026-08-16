@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, Query, Req } from '@nestjs/
 import { Public } from '../middleware/public.decorator';
 import { PublicLinksController } from '../controller/public-links.controller';
 import { CreatePublicLinkDto } from '../dto/shares.dto';
-import { userIdFromRequest, type AuthenticatedRequest } from '../interfaces/request.interfaces';
+import { userIdFromRequest, optionalUserId, type AuthenticatedRequest } from '../interfaces/request.interfaces';
 
 @Controller()
 export class PublicLinksRoutes {
@@ -21,11 +21,12 @@ export class PublicLinksRoutes {
     @Public()
     @Get('public/:token')
     open(
+        @Req() req: AuthenticatedRequest,
         @Param('token') token: string,
         @Query('limit') limit?: string,
         @Query('offset') offset?: string,
     ) {
-        return this.publicLinksController.open(token, {
+        return this.publicLinksController.open(optionalUserId(req), token, {
             limit: limit ? Number(limit) : undefined,
             offset: offset ? Number(offset) : undefined,
         });
@@ -34,15 +35,22 @@ export class PublicLinksRoutes {
     @Public()
     @Get('public/:token/folders/:folderId')
     openFolder(
+        @Req() req: AuthenticatedRequest,
         @Param('token') token: string,
         @Param('folderId') folderId: string,
         @Query('limit') limit?: string,
         @Query('offset') offset?: string,
     ) {
-        return this.publicLinksController.openFolder(token, folderId, {
+        return this.publicLinksController.openFolder(optionalUserId(req), token, folderId, {
             limit: limit ? Number(limit) : undefined,
             offset: offset ? Number(offset) : undefined,
         });
+    }
+
+    @Public()
+    @Get('public/:token/files/:fileId/download')
+    download(@Req() req: AuthenticatedRequest, @Param('token') token: string, @Param('fileId') fileId: string) {
+        return this.publicLinksController.download(optionalUserId(req), token, fileId);
     }
 
     @Post('public/:token/join')

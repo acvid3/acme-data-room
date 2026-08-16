@@ -21,6 +21,7 @@ import { SharesService } from './services/shares.service';
 import { PublicLinksService } from './services/public-links.service';
 import { AccessService } from './services/access.service';
 import { UsersService } from './services/users.service';
+import { PresenceService } from './services/presence.service';
 import { S3Storage } from './integrations/s3-storage';
 import { GmailEmailService } from './integrations/gmail-email.service';
 import { FILE_STORAGE } from './interfaces/storage.interfaces';
@@ -62,6 +63,7 @@ import { VerificationCodeRepository } from './repository/verification-code.repos
         PublicLinksService,
         AccessService,
         UsersService,
+        PresenceService,
         {
             provide: FILE_STORAGE,
             useClass: S3Storage,

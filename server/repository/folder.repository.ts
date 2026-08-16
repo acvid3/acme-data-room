@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../services/prisma.service';
 import { mapFolder } from '../utils/prisma-mappers';
 import type { Folder } from '../interfaces/folders.interfaces';
@@ -75,6 +76,46 @@ export class FolderRepository {
             files: Number(row.files),
             sizeBytes: Number(row.sizeBytes),
         };
+    }
+
+    async findSubtreeStatsByRoots(
+        dataRoomId: string,
+        rootFolderIds: string[],
+    ): Promise<Map<string, { folders: number; files: number; sizeBytes: number }>> {
+        if (rootFolderIds.length === 0) {
+            return new Map();
+        }
+        const rows = await this.prisma.$queryRaw<
+            Array<{ rootId: string; folders: bigint; files: bigint; sizeBytes: bigint }>
+        >`
+            WITH RECURSIVE tree AS (
+                SELECT id, "parentFolderId", id AS root_id
+                FROM "Folder"
+                WHERE "dataRoomId" = ${dataRoomId} AND id IN (${Prisma.join(rootFolderIds)})
+                UNION ALL
+                SELECT f.id, f."parentFolderId", t.root_id
+                FROM "Folder" f
+                INNER JOIN tree t ON f."parentFolderId" = t.id
+            )
+            SELECT
+                t.root_id AS "rootId",
+                COUNT(DISTINCT t.id) AS folders,
+                COUNT(f.id) AS files,
+                COALESCE(SUM(f."sizeBytes"), 0) AS "sizeBytes"
+            FROM tree t
+            LEFT JOIN "File" f ON f."folderId" = t.id
+            GROUP BY t.root_id
+        `;
+        return new Map(
+            rows.map((row) => [
+                row.rootId,
+                {
+                    folders: Number(row.folders),
+                    files: Number(row.files),
+                    sizeBytes: Number(row.sizeBytes),
+                },
+            ]),
+        );
     }
 
     async findNamesInParent(dataRoomId: string, parentFolderId: string | null): Promise<string[]> {

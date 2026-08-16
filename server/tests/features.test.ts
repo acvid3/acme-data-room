@@ -537,13 +537,25 @@ describe('Public links routes', () => {
         assert.equal((first.body as { token: string }).token, (second.body as { token: string }).token);
     });
 
-    it('opens a public link without auth', async () => {
+    it('rejects opening a public link without auth (404)', async () => {
         const created = await api(base(), 'POST', '/api/public-links', {
             token: owner.token,
             body: { shareableType: 'DATAROOM', shareableId: room.id },
         });
         const token = (created.body as { token: string }).token;
-        const { status, body } = await api(base(), 'GET', `/api/public/${token}`);
+        const { status } = await api(base(), 'GET', `/api/public/${token}`);
+        assert.equal(status, 404);
+    });
+
+    it('opens a public link while authenticated', async () => {
+        const created = await api(base(), 'POST', '/api/public-links', {
+            token: owner.token,
+            body: { shareableType: 'DATAROOM', shareableId: room.id },
+        });
+        const token = (created.body as { token: string }).token;
+        const { status, body } = await api(base(), 'GET', `/api/public/${token}`, {
+            token: owner.token,
+        });
         assert.equal(status, 200);
         assert.equal((body as { type: string }).type, 'DATAROOM');
     });
@@ -558,7 +570,7 @@ describe('Public links routes', () => {
             token: owner.token,
         });
         assert.equal(status, 200);
-        const gone = await api(base(), 'GET', `/api/public/${token}`);
+        const gone = await api(base(), 'GET', `/api/public/${token}`, { token: owner.token });
         assert.equal(gone.status, 404);
     });
 
@@ -577,7 +589,9 @@ describe('Public links routes', () => {
             body: { shareableType: 'DATAROOM', shareableId: room.id },
         });
         const token = (created.body as { token: string }).token;
-        const { status, body } = await api(base(), 'GET', `/api/public/${token}`);
+        const { status, body } = await api(base(), 'GET', `/api/public/${token}`, {
+            token: owner.token,
+        });
         assert.equal(status, 200);
         const payload = body as { users: Array<{ id: string; email: string }> };
         assert.ok(payload.users.some((u) => u.email === 'links-owner@test.com'));
@@ -611,6 +625,132 @@ describe('Public links routes', () => {
         const token = (created.body as { token: string }).token;
         const { status } = await api(base(), 'POST', `/api/public/${token}/join`);
         assert.equal(status, 401);
+    });
+
+    it('includes subtree stats in the public folder payload', async () => {
+        const folder = await createFolder(base(), owner.token, room.id, 'Stats Folder');
+        await uploadFile(base(), {
+            token: owner.token,
+            dataRoomId: room.id,
+            folderId: folder.id,
+            name: 'a.pdf',
+            mimeType: 'application/pdf',
+            data: Buffer.alloc(100),
+        });
+        const created = await api(base(), 'POST', '/api/public-links', {
+            token: owner.token,
+            body: { shareableType: 'FOLDER', shareableId: folder.id },
+        });
+        const token = (created.body as { token: string }).token;
+        const { status, body } = await api(base(), 'GET', `/api/public/${token}`, {
+            token: owner.token,
+        });
+        assert.equal(status, 200);
+        const stats = (body as { stats: { folders: number; files: number; sizeBytes: number } }).stats;
+        assert.equal(stats.folders, 1);
+        assert.equal(stats.files, 1);
+        assert.equal(stats.sizeBytes, 100);
+    });
+
+    it('includes per-folder stats in the public contents list', async () => {
+        const folderA = await createFolder(base(), owner.token, room.id, 'Folder A');
+        await uploadFile(base(), {
+            token: owner.token,
+            dataRoomId: room.id,
+            folderId: folderA.id,
+            name: 'a.pdf',
+            mimeType: 'application/pdf',
+            data: Buffer.alloc(100),
+        });
+        const child = await createFolder(base(), owner.token, room.id, 'Child', folderA.id);
+        await uploadFile(base(), {
+            token: owner.token,
+            dataRoomId: room.id,
+            folderId: child.id,
+            name: 'c.pdf',
+            mimeType: 'application/pdf',
+            data: Buffer.alloc(200),
+        });
+        const created = await api(base(), 'POST', '/api/public-links', {
+            token: owner.token,
+            body: { shareableType: 'DATAROOM', shareableId: room.id },
+        });
+        const token = (created.body as { token: string }).token;
+        const { status, body } = await api(base(), 'GET', `/api/public/${token}`, {
+            token: owner.token,
+        });
+        assert.equal(status, 200);
+        const folders = (body as {
+            contents: { folders: Array<{ id: string; stats: { folders: number; files: number; sizeBytes: number } }> };
+        }).contents.folders;
+        const target = folders.find((f) => f.id === folderA.id);
+        assert.ok(target, 'folder must be present in the public list');
+        assert.equal(target.stats.folders, 2);
+        assert.equal(target.stats.files, 2);
+        assert.equal(target.stats.sizeBytes, 300);
+    });
+
+    it('lets a link viewer download a file in the room', async () => {
+        const folder = await createFolder(base(), owner.token, room.id, 'Download Folder');
+        const uploaded = await uploadFile(base(), {
+            token: owner.token,
+            dataRoomId: room.id,
+            folderId: folder.id,
+            name: 'dl.pdf',
+            mimeType: 'application/pdf',
+        });
+        const fileId = (uploaded.body as { id: string }).id;
+        const created = await api(base(), 'POST', '/api/public-links', {
+            token: owner.token,
+            body: { shareableType: 'DATAROOM', shareableId: room.id },
+        });
+        const token = (created.body as { token: string }).token;
+        const guest = await registerUser(base(), 'links-downloader@test.com');
+        const { status, body } = await api(base(), 'GET', `/api/public/${token}/files/${fileId}/download`, {
+            token: guest.token,
+        });
+        assert.equal(status, 200);
+        assert.ok((body as { url: string }).url.includes('X-Amz-Signature'));
+    });
+
+    it('rejects download of a file outside the link scope (404)', async () => {
+        const folderA = await createFolder(base(), owner.token, room.id, 'Scope A');
+        const folderB = await createFolder(base(), owner.token, room.id, 'Scope B');
+        const uploaded = await uploadFile(base(), {
+            token: owner.token,
+            dataRoomId: room.id,
+            folderId: folderA.id,
+            name: 'outside.pdf',
+            mimeType: 'application/pdf',
+        });
+        const fileId = (uploaded.body as { id: string }).id;
+        const created = await api(base(), 'POST', '/api/public-links', {
+            token: owner.token,
+            body: { shareableType: 'FOLDER', shareableId: folderB.id },
+        });
+        const token = (created.body as { token: string }).token;
+        const guest = await registerUser(base(), 'links-scope@test.com');
+        const { status } = await api(base(), 'GET', `/api/public/${token}/files/${fileId}/download`, {
+            token: guest.token,
+        });
+        assert.equal(status, 404);
+    });
+
+    it('rejects download without auth (404)', async () => {
+        const uploaded = await uploadFile(base(), {
+            token: owner.token,
+            dataRoomId: room.id,
+            name: 'anon.pdf',
+            mimeType: 'application/pdf',
+        });
+        const fileId = (uploaded.body as { id: string }).id;
+        const created = await api(base(), 'POST', '/api/public-links', {
+            token: owner.token,
+            body: { shareableType: 'DATAROOM', shareableId: room.id },
+        });
+        const token = (created.body as { token: string }).token;
+        const { status } = await api(base(), 'GET', `/api/public/${token}/files/${fileId}/download`);
+        assert.equal(status, 404);
     });
 });
 
@@ -791,5 +931,82 @@ describe('Pagination and search', () => {
         assert.equal(stats.folders, 1);
         assert.equal(stats.files, 5);
         assert.equal(stats.sizeBytes, 1500);
+    });
+});
+
+describe('Presence (auto-marking)', () => {
+    let ctx: TestApp;
+    let owner: { token: string; id: string };
+    let guest: { token: string; id: string };
+
+    before(async () => {
+        ctx = await startTestApp();
+        owner = await registerUser(ctx.baseUrl, 'presence-owner@test.com');
+        guest = await registerUser(ctx.baseUrl, 'presence-guest@test.com');
+    });
+
+    after(async () => {
+        await ctx.close();
+    });
+
+    const base = () => ctx.baseUrl;
+
+    it('listing room contents marks the user as active', async () => {
+        const room = await createRoom(base(), owner.token, 'Presence Contents');
+        await api(base(), 'GET', `/api/data-rooms/${room.id}/contents`, { token: owner.token });
+        const { body } = await api(base(), 'GET', `/api/data-rooms/${room.id}`, { token: owner.token });
+        const active = body as { activeUsers: Array<{ id: string }> };
+        assert.ok(active.activeUsers.some((u) => u.id === owner.id));
+    });
+
+    it('separates invited users from currently-active users', async () => {
+        const room = await createRoom(base(), owner.token, 'Presence Split');
+        await api(base(), 'POST', '/api/shares', {
+            token: owner.token,
+            body: { shareableType: 'DATAROOM', shareableId: room.id, userId: guest.id },
+        });
+        const idle = await api(base(), 'GET', `/api/data-rooms/${room.id}`, { token: owner.token });
+        const idleBody = idle.body as { users: unknown[]; activeUsers: unknown[] };
+        assert.equal(idleBody.users.length, 2);
+        assert.equal(idleBody.activeUsers.length, 0);
+
+        await api(base(), 'GET', `/api/data-rooms/${room.id}/contents`, { token: guest.token });
+        const active = await api(base(), 'GET', `/api/data-rooms/${room.id}`, { token: owner.token });
+        const activeBody = active.body as { activeUsers: Array<{ id: string }> };
+        assert.equal(activeBody.activeUsers.length, 1);
+        assert.equal(activeBody.activeUsers[0].id, guest.id);
+    });
+
+    it('opening a public link while authenticated marks a member as active', async () => {
+        const room = await createRoom(base(), owner.token, 'Presence Link');
+        await makeRoomPublic(base(), owner.token, room.id);
+        await api(base(), 'POST', '/api/shares', {
+            token: owner.token,
+            body: { shareableType: 'DATAROOM', shareableId: room.id, userId: guest.id },
+        });
+        const created = await api(base(), 'POST', '/api/public-links', {
+            token: owner.token,
+            body: { shareableType: 'DATAROOM', shareableId: room.id },
+        });
+        const token = (created.body as { token: string }).token;
+        await api(base(), 'GET', `/api/public/${token}`, { token: guest.token });
+        const { body } = await api(base(), 'GET', `/api/data-rooms/${room.id}`, { token: owner.token });
+        const active = body as { activeUsers: Array<{ id: string }> };
+        assert.ok(active.activeUsers.some((u) => u.id === guest.id));
+    });
+
+    it('a read-only link viewer appears in activeUsers but not in invited users', async () => {
+        const room = await createRoom(base(), owner.token, 'Presence Viewer');
+        await makeRoomPublic(base(), owner.token, room.id);
+        const created = await api(base(), 'POST', '/api/public-links', {
+            token: owner.token,
+            body: { shareableType: 'DATAROOM', shareableId: room.id },
+        });
+        const token = (created.body as { token: string }).token;
+        await api(base(), 'GET', `/api/public/${token}`, { token: guest.token });
+        const { body } = await api(base(), 'GET', `/api/data-rooms/${room.id}`, { token: owner.token });
+        const payload = body as { users: Array<{ id: string }>; activeUsers: Array<{ id: string }> };
+        assert.ok(!payload.users.some((u) => u.id === guest.id), 'viewer must not be an invited member');
+        assert.ok(payload.activeUsers.some((u) => u.id === guest.id), 'viewer should be in currently-active');
     });
 });

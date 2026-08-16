@@ -3,6 +3,7 @@ import { FolderRepository } from '../repository/folder.repository';
 import { FileRepository } from '../repository/file.repository';
 import { DataRoomRepository } from '../repository/data-room.repository';
 import { AccessService } from './access.service';
+import { PresenceService } from './presence.service';
 import { FILE_STORAGE } from '../interfaces/storage.interfaces';
 import type { FileStorage } from '../interfaces/storage.interfaces';
 import { CreateFolderDto, UpdateFolderDto } from '../dto/folders.dto';
@@ -19,6 +20,7 @@ export class FoldersService {
         private readonly fileRepository: FileRepository,
         private readonly dataRoomRepository: DataRoomRepository,
         private readonly accessService: AccessService,
+        private readonly presenceService: PresenceService,
         @Inject(FILE_STORAGE) private readonly storage: FileStorage,
     ) {}
 
@@ -42,6 +44,7 @@ export class FoldersService {
     async contents(userId: string, id: string, options: PageOptions = {}): Promise<FolderContents> {
         const { limit, offset } = normalizePage(options);
         const folder = await this.findReadable(userId, id);
+        this.presenceService.touch(folder.dataRoomId, userId);
         const [folders, files, folderTotal, fileTotal] = await Promise.all([
             this.folderRepository.findByParentPage(folder.dataRoomId, folder.id, offset, limit),
             this.fileRepository.findByFolderPage(folder.dataRoomId, folder.id, offset, limit),

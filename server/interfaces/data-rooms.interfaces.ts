@@ -16,4 +16,5 @@ export interface DataRoom {
     updatedAt: string;
     users?: RoomUser[];
     userCount?: number;
+    activeUsers?: RoomUser[];
 }

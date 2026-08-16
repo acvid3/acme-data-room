@@ -24,6 +24,8 @@ import RenameDialog from './RenameDialog'
 import DeleteDialog from './DeleteDialog'
 import UploadButton from './UploadButton'
 import ShareDialog from '@/components/blocks/ShareDialog'
+import FilePreviewDialog from '@/components/blocks/FilePreviewDialog'
+import UpLevelCard from './UpLevelCard'
 
 const FILE_PAGE_SIZE = 25
 
@@ -54,16 +56,18 @@ function RoomViewerContent() {
     const { user } = useAuth()
     const [filePage, setFilePage] = React.useState(1)
     const fileOffset = (filePage - 1) * FILE_PAGE_SIZE
-    const { room, contents, setContents, loading, error, reload } = useRoomContents(roomId, folderId, {
+    const { room, setRoom, contents, setContents, loading, error, reload } = useRoomContents(roomId, folderId, {
         limit: FILE_PAGE_SIZE,
         offset: fileOffset,
     })
     const folderPath = useFolderPath(folderId)
+    const parentFolderId = folderPath.length > 0 ? folderPath[folderPath.length - 1].parentFolderId : null
     const { setDragged } = useDnd()
 
     const [createOpen, setCreateOpen] = React.useState(false)
     const [renameTarget, setRenameTarget] = React.useState<ItemTarget | null>(null)
     const [deleteTarget, setDeleteTarget] = React.useState<ItemTarget | null>(null)
+    const [previewFile, setPreviewFile] = React.useState<FileMeta | null>(null)
     const [shareOpen, setShareOpen] = React.useState(false)
     const { view, setView } = useViewMode('contents')
     const [sort, setSort] = React.useState<ContentSort>('name')
@@ -86,22 +90,38 @@ function RoomViewerContent() {
         return () => clearTimeout(timeout)
     }, [toast])
 
-    const runSearch = async () => {
-        const q = searchQuery.trim()
-        if (!q) {
+    const runSearch = React.useCallback(
+        async (q: string) => {
+            const query = q.trim()
+            if (!query) {
+                setSearchResults({ folders: [], files: [] })
+                setSearching(false)
+                return
+            }
+            setSearching(true)
+            try {
+                const result = await roomApi.search(roomId, query)
+                setSearchResults({ folders: result.folders, files: result.files })
+            } catch {
+                setSearchResults({ folders: [], files: [] })
+            } finally {
+                setSearching(false)
+            }
+        },
+        [roomId],
+    )
+
+    React.useEffect(() => {
+        const query = searchQuery.trim()
+        if (!query) {
             setSearchResults({ folders: [], files: [] })
+            setSearching(false)
             return
         }
         setSearching(true)
-        try {
-            const result = await roomApi.search(roomId, q)
-            setSearchResults({ folders: result.folders, files: result.files })
-        } catch {
-            setSearchResults({ folders: [], files: [] })
-        } finally {
-            setSearching(false)
-        }
-    }
+        const timeout = setTimeout(() => runSearch(query), 300)
+        return () => clearTimeout(timeout)
+    }, [searchQuery, runSearch])
 
     const handleMove = async (item: { type: 'folder' | 'file'; id: string }, targetFolderId: string | null) => {
         if (readOnly) return
@@ -195,22 +215,13 @@ function RoomViewerContent() {
                     <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         value={searchQuery}
-                        onChange={(event) => {
-                            setSearchQuery(event.target.value)
-                            if (!event.target.value.trim()) setSearchResults({ folders: [], files: [] })
-                        }}
-                        onKeyDown={(event) => {
-                            if (event.key === 'Enter') runSearch()
-                        }}
+                        onChange={(event) => setSearchQuery(event.target.value)}
                         placeholder="Search files and folders..."
                         className="pl-9 pr-8"
                     />
                     {searchQuery && (
                         <button
-                            onClick={() => {
-                                setSearchQuery('')
-                                setSearchResults({ folders: [], files: [] })
-                            }}
+                            onClick={() => setSearchQuery('')}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                             aria-label="Clear search"
                         >
@@ -267,6 +278,7 @@ function RoomViewerContent() {
                                             target={{ type: 'file', item: file }}
                                             view={view}
                                             readOnly={readOnly}
+                                            onPreview={setPreviewFile}
                                             onRename={setRenameTarget}
                                             onDelete={setDeleteTarget}
                                             onDrop={handleMove}
@@ -289,6 +301,13 @@ function RoomViewerContent() {
                     ) : (
                         <>
                             <CardGrid view={view}>
+                                {folderId && (
+                                    <UpLevelCard
+                                        targetFolderId={parentFolderId}
+                                        onDrop={handleMove}
+                                        view={view}
+                                    />
+                                )}
                                 {visibleFolders.map((folder) => (
                                     <ItemCard
                                         key={folder.id}
@@ -309,6 +328,7 @@ function RoomViewerContent() {
                                         target={{ type: 'file', item: file }}
                                             view={view}
                                         readOnly={readOnly}
+                                        onPreview={setPreviewFile}
                                         onRename={setRenameTarget}
                                         onDelete={setDeleteTarget}
                                         onDrop={handleMove}
@@ -376,10 +396,21 @@ function RoomViewerContent() {
 
             {room && (
                 <ShareDialog
-                    shareableType={folderId ? 'FOLDER' : 'DATAROOM'}
-                    shareableId={folderId ?? roomId}
+                    shareableType="DATAROOM"
+                    shareableId={roomId}
+                    room={room}
                     open={shareOpen}
                     onOpenChange={setShareOpen}
+                    onVisibilityChange={setRoom}
+                />
+            )}
+
+            {previewFile && (
+                <FilePreviewDialog
+                    file={previewFile}
+                    open={previewFile !== null}
+                    onOpenChange={(open) => !open && setPreviewFile(null)}
+                    onFetchUrl={() => fileApi.download(previewFile.id)}
                 />
             )}
 

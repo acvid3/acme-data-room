@@ -3,6 +3,7 @@ import { PublicLinksService, PublicLinkOpenResult } from '../services/public-lin
 import { CreatePublicLinkDto } from '../dto/shares.dto';
 import type { PageOptions } from '../utils/pagination';
 import type { DataRoom } from '../interfaces/data-rooms.interfaces';
+import type { DownloadFileResult } from '../interfaces/files.interfaces';
 import type { PublicLink } from '../interfaces/public-links.interfaces';
 
 @Injectable()
@@ -17,12 +18,16 @@ export class PublicLinksController {
         return this.publicLinksService.revoke(userId, token);
     }
 
-    open(token: string, options?: PageOptions): Promise<PublicLinkOpenResult> {
-        return this.publicLinksService.open(token, options);
+    open(userId: string | null, token: string, options?: PageOptions): Promise<PublicLinkOpenResult> {
+        return this.publicLinksService.open(userId, token, options);
     }
 
-    openFolder(token: string, folderId: string, options?: PageOptions): Promise<PublicLinkOpenResult> {
-        return this.publicLinksService.openFolder(token, folderId, options);
+    openFolder(userId: string | null, token: string, folderId: string, options?: PageOptions): Promise<PublicLinkOpenResult> {
+        return this.publicLinksService.openFolder(userId, token, folderId, options);
+    }
+
+    download(userId: string | null, token: string, fileId: string): Promise<DownloadFileResult> {
+        return this.publicLinksService.download(userId, token, fileId);
     }
 
     join(userId: string, token: string): Promise<DataRoom> {

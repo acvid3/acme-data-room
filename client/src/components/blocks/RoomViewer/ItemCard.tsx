@@ -1,9 +1,9 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, FileText, Folder, FolderOpen, Pencil, Trash2 } from 'lucide-react'
+import { Download, Eye, FileText, Folder, FolderOpen, Pencil, Trash2 } from 'lucide-react'
 import { fileApi, folderApi } from '@/api'
 import { useDnd, type DraggedItem } from '@/contexts/dnd'
-import type { FileMeta, Folder as FolderType, RoomStats } from '@/types'
+import type { DownloadResult, FileMeta, Folder as FolderType, RoomStats } from '@/types'
 import type { ViewMode } from '@/components/shared/view-toggle'
 import { cn } from '@/utils/cn'
 
@@ -16,9 +16,14 @@ type ItemCardProps = {
     roomId: string
     readOnly: boolean
     view?: ViewMode
-    onRename: (target: ItemTarget) => void
-    onDelete: (target: ItemTarget) => void
-    onDrop: (item: DraggedItem, targetFolderId: string | null) => void
+    download?: boolean
+    folderStats?: RoomStats
+    onOpenFolder?: (folder: FolderType) => void
+    onPreview?: (file: FileMeta) => void
+    onDownload?: (file: FileMeta) => Promise<DownloadResult>
+    onRename?: (target: ItemTarget) => void
+    onDelete?: (target: ItemTarget) => void
+    onDrop?: (item: DraggedItem, targetFolderId: string | null) => void
 }
 
 function formatSize(bytes: number): string {
@@ -41,35 +46,40 @@ function formatType(mimeType: string): string {
     return subtype ? subtype.toUpperCase() : mimeType
 }
 
-function FolderStats({ folder }: { folder: FolderType }) {
-    const [stats, setStats] = React.useState<RoomStats | null>(null)
+function FolderStats({ folder, stats }: { folder: FolderType; stats?: RoomStats }) {
+    const [fetched, setFetched] = React.useState<RoomStats | null>(null)
 
     React.useEffect(() => {
+        if (stats) {
+            setFetched(null)
+            return
+        }
         let cancelled = false
         folderApi
             .stats(folder.id)
             .then((data) => {
-                if (!cancelled) setStats(data)
+                if (!cancelled) setFetched(data)
             })
             .catch(() => {
-                if (!cancelled) setStats(null)
+                if (!cancelled) setFetched(null)
             })
         return () => {
             cancelled = true
         }
-    }, [folder.id])
+    }, [folder.id, stats])
 
-    const hasStats = stats && (stats.files > 0 || stats.folders > 0 || stats.sizeBytes > 0)
+    const resolved = stats ?? fetched
+    const hasStats = resolved && (resolved.files > 0 || resolved.folders > 0 || resolved.sizeBytes > 0)
 
     return (
         <div className="space-y-0.5">
-            {hasStats && stats && (
+            {hasStats && resolved && (
                 <p className="truncate text-xs text-muted-foreground">
                     <FolderOpen className="mr-1 inline size-3" />
                     {[
-                        stats.files > 0 && `${stats.files} ${stats.files === 1 ? 'file' : 'files'}`,
-                        stats.folders > 0 && `${stats.folders} ${stats.folders === 1 ? 'folder' : 'folders'}`,
-                        stats.sizeBytes > 0 && formatSize(stats.sizeBytes),
+                        resolved.files > 0 && `${resolved.files} ${resolved.files === 1 ? 'file' : 'files'}`,
+                        resolved.folders > 0 && `${resolved.folders} ${resolved.folders === 1 ? 'folder' : 'folders'}`,
+                        resolved.sizeBytes > 0 && formatSize(resolved.sizeBytes),
                     ]
                         .filter(Boolean)
                         .join(' · ')}
@@ -82,7 +92,20 @@ function FolderStats({ folder }: { folder: FolderType }) {
     )
 }
 
-export default function ItemCard({ target, roomId, readOnly, view = 'grid', onRename, onDelete, onDrop }: ItemCardProps) {
+export default function ItemCard({
+    target,
+    roomId,
+    readOnly,
+    view = 'grid',
+    download = true,
+    folderStats,
+    onOpenFolder,
+    onPreview,
+    onDownload,
+    onRename,
+    onDelete,
+    onDrop,
+}: ItemCardProps) {
     const navigate = useNavigate()
     const { dragged, setDragged } = useDnd()
     const [dropActive, setDropActive] = React.useState(false)
@@ -110,24 +133,30 @@ export default function ItemCard({ target, roomId, readOnly, view = 'grid', onRe
         setDropActive(false)
         if (!dragged || dragged.id === id) return
         if (target.type === 'file') return
-        onDrop(dragged, target.item.id)
+        onDrop?.(dragged, target.item.id)
     }
 
     const handleOpen = () => {
-        if (isFolder) navigate(`/rooms/${roomId}/folders/${id}`)
+        if (isFolder) {
+            if (onOpenFolder) onOpenFolder(target.item)
+            else navigate(`/rooms/${roomId}/folders/${id}`)
+        }
     }
 
     const handleDownload = async (event: React.MouseEvent) => {
         event.stopPropagation()
-        const { url, name: fileName } = await fileApi.download(id)
+        if (isFolder || target.type !== 'file') return
+        const result = onDownload
+            ? await onDownload(target.item)
+            : await fileApi.download(id)
         const anchor = document.createElement('a')
-        anchor.href = url
-        anchor.download = fileName
+        anchor.href = result.url
+        anchor.download = result.name
         anchor.click()
     }
 
     const meta = isFolder ? (
-        <FolderStats folder={target.item} />
+        <FolderStats folder={target.item} stats={folderStats} />
     ) : (
         <>
             <p className="truncate text-xs text-muted-foreground">
@@ -172,7 +201,19 @@ export default function ItemCard({ target, roomId, readOnly, view = 'grid', onRe
                     </div>
                     <div className="flex min-w-0 flex-[2] flex-col">{meta}</div>
                     <div className="flex min-w-0 flex-[2] items-center justify-end">
-                        {!isFolder && (
+                        {!isFolder && onPreview && (
+                            <button
+                                onClick={(event) => {
+                                    event.stopPropagation()
+                                    onPreview(target.item)
+                                }}
+                                className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                aria-label="Preview"
+                            >
+                                <Eye className="size-4" />
+                            </button>
+                        )}
+                        {!isFolder && download && (
                             <button
                                 onClick={handleDownload}
                                 className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -181,7 +222,7 @@ export default function ItemCard({ target, roomId, readOnly, view = 'grid', onRe
                                 <Download className="size-4" />
                             </button>
                         )}
-                        {!readOnly && (
+                        {!readOnly && onRename && onDelete && (
                             <div className="flex items-center gap-0.5">
                                 <button
                                     onClick={(event) => {
@@ -214,7 +255,20 @@ export default function ItemCard({ target, roomId, readOnly, view = 'grid', onRe
                         {meta}
                     </div>
 
-                    {!isFolder && (
+                    {!isFolder && onPreview && (
+                        <button
+                            onClick={(event) => {
+                                event.stopPropagation()
+                                onPreview(target.item)
+                            }}
+                            className="absolute right-10 top-2 rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
+                            aria-label="Preview"
+                        >
+                            <Eye className="size-4" />
+                        </button>
+                    )}
+
+                    {!isFolder && download && (
                         <button
                             onClick={handleDownload}
                             className="absolute right-2 top-2 rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
@@ -224,7 +278,7 @@ export default function ItemCard({ target, roomId, readOnly, view = 'grid', onRe
                         </button>
                     )}
 
-                    {!readOnly && (
+                    {!readOnly && onRename && onDelete && (
                         <div className="flex items-center gap-0.5 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
                             <button
                                 onClick={(event) => {

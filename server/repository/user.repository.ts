@@ -15,6 +15,17 @@ export class UserRepository {
         return user ? mapUser(user) : null;
     }
 
+    async findByIds(ids: string[]): Promise<User[]> {
+        if (ids.length === 0) {
+            return [];
+        }
+        const users = await this.prisma.user.findMany({
+            where: { id: { in: ids } },
+            select: { id: true, email: true, name: true, createdAt: true },
+        });
+        return users.map((user) => mapUser(user));
+    }
+
     async findByEmail(email: string): Promise<{
         id: string;
         email: string;
