@@ -343,6 +343,8 @@ gateway (`infra/Dockerfile.gateway` + `infra/nginx.conf.template`) that serves t
 frontend (built with `VITE_API_BASE=/api`) and proxies `/api/*` to the API service. The
 browser only ever talks to the gateway, so the `SameSite=Lax` auth cookie is stored and
 sent correctly — splitting frontend and API across separate subdomains would break it.
+The gateway sets `client_max_body_size 55m` so uploads up to the API limit (server default
+50MB) pass — nginx's own default cap is 1MB.
 
 Redeploy with the idempotent script (wires cross-service URLs):
 
