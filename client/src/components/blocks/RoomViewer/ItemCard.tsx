@@ -177,11 +177,11 @@ export default function ItemCard({
 
             {view === 'list' ? (
                 <>
-                    <div className="flex min-w-0 flex-[3] items-center gap-3">
+                    <div className="flex min-w-0 flex-1 flex-col">
                         <p className="truncate font-medium">{name}</p>
+                        <div className="truncate">{meta}</div>
                     </div>
-                    <div className="flex min-w-0 flex-[2] flex-col">{meta}</div>
-                    <div className="flex min-w-0 flex-[2] items-center justify-end">
+                    <div className="flex shrink-0 items-center justify-end">
                         {!isFolder && onPreview && (
                             <button
                                 onClick={(event) => {
