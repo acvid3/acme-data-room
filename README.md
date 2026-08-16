@@ -79,8 +79,7 @@ acme-data-room/
     ├── Dockerfile.server|.client|.gateway
     ├── nginx.conf.template  # single-origin gateway (serves SPA, proxies /api)
     ├── render.yaml          # Render Blueprint (Postgres + API + nginx gateway)
-    ├── render-deploy.sh     # idempotent deploy via the Render API
-    └── CREDENTIALS.md       # where to obtain every credential, current status
+    └── render-deploy.sh     # idempotent deploy via the Render API
 ```
 
 ## Local development
@@ -132,7 +131,7 @@ cd server && npm test
 ```
 
 > Email OTP: set `GMAIL_REFRESH_TOKEN`, `GMAIL_FROM`, and `GMAIL_REDIRECT_URI` to actually
-> send codes (see `infra/CREDENTIALS.md`). When email is not configured, `issueCode`
+> send codes. When email is not configured, `issueCode`
 > returns `sent: false` and the code is included in the API response, so local flows work
 > out of the box.
 
@@ -277,7 +276,7 @@ cycle rather than just scaffolding: architecture, implementation, test generatio
 code audit, bug fixing, refactoring, and vulnerability hunting/debugging. Where AI was used:
 
 - **Workspace & scaffolding.** Initial project skeleton (NestJS app, Prisma schema, route
-  surfaces) and the docs (`TESTS.md`, `infra/CREDENTIALS.md`) were drafted by the agent
+  surfaces) and the docs (`TESTS.md`) were drafted by the agent
   from the task text.
 - **Backend implementation.** NestJS modules (auth, data rooms, folders, files, shares,
   public links) and services/repositories were written iteratively with the agent:
@@ -324,7 +323,7 @@ Residual findings from the security audit — none blocking, but worth knowing b
   without locking. This is mitigated by the per-email rate limit (5 codes/hour) and the
   10-minute expiry; hardening would be an atomic `attempts < MAX` increment in the database.
 - **Rotate local secrets before sharing.** Working tokens currently live in the local,
-  git-ignored `.env` files (`GH_TOKEN`, `VERCEL_TOKEN`, `RENDER_API_KEY`, Gmail refresh
+  git-ignored `.env` files (`GH_TOKEN`, `RENDER_API_KEY`, Gmail refresh
   token, B2 application key). They were never committed (`.env*` is in `.gitignore`), but
   revoke and reissue them if the machine or repo is ever shared. The deployed API already
   runs with `NODE_ENV=production`, so its auth cookie is issued with `Secure`.
@@ -353,5 +352,4 @@ Redeploy with the idempotent script (wires cross-service URLs):
 
 or via the Render Blueprint `infra/render.yaml` (Dashboard → New Blueprint Instance →
 select the repo). Secrets (`S3_*`, `GMAIL_*`, `GOOGLE_*`) are prompted on first creation
-(`sync: false`) and never enter git. Details and the credential checklist are in
-[infra/CREDENTIALS.md](./infra/CREDENTIALS.md).
+(`sync: false`) and never enter git. Required env vars are described in `.env.example`.

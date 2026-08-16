@@ -85,14 +85,14 @@ export default function Landing() {
                             </Link>
                         ) : (
                             <>
-                                <Link to="/register">
-                                    <Button size="lg">
+                                <Link to="/register" className="w-full sm:w-auto">
+                                    <Button size="lg" className="w-full sm:min-w-44">
                                         <UserPlus className="size-4" />
                                         Create an account
                                     </Button>
                                 </Link>
-                                <Link to="/login">
-                                    <Button size="lg" variant="outline">
+                                <Link to="/login" className="w-full sm:w-auto">
+                                    <Button size="lg" variant="outline" className="w-full sm:min-w-44">
                                         <LogIn className="size-4" />
                                         Sign in
                                     </Button>
