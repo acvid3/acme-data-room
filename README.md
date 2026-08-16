@@ -280,8 +280,10 @@ code audit, bug fixing, refactoring, and vulnerability hunting/debugging. Where 
   existence-leak, auth/authorization gaps, rate limiting), debugged failing flows, and
   verified every change by building and running the tests.
 
-Session stats (opencode / DeepSeek V4 Flash): **3,237 API requests · 1.1B tokens ·
-≈ $4.79 USD** over the whole project.
+Session stats (opencode / DeepSeek V4 Flash): development took **~10 hours over 2 days
+(Aug 15–16, 2026) · 3.4M tokens · ≈ $3.3 via API**. Sessions counted: TASK.md compliance,
+project exploration, folder contents review, duplicate checks, git commits, vulnerability
+search, and README.
 
 No claim that every line is hand-written; no claim it's all AI. Business decisions (data
 model, access model, conflict handling, auth flow) were reviewed and validated by a human
