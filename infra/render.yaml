@@ -1,0 +1,101 @@
+# Render Blueprint — Acme Data Room
+#
+# Deploy the whole stack on Render:
+#   - Postgres           acme-dataroom-postgres
+#   - API (NestJS)       acme-dataroom-api
+#   - Gateway (nginx)    acme-dataroom-web  — serves the SPA and proxies /api
+#     to the API over Render's private network, so the app lives on ONE origin
+#     and the SameSite=Lax auth cookie works.
+#
+# Deploy:
+#   Option A — Render Dashboard:
+#     New Blueprint Instance -> connect the repo -> select infra/render.yaml
+#     (or commit this file as <repo-root>/render.yaml).
+#   Option B — one-command via API (recommended, wires cross-service URLs):
+#     ./infra/render-deploy.sh
+#
+# Notes:
+#   - Secrets (S3_ACCESS_KEY, S3_SECRET_KEY, GMAIL_*, GOOGLE_*) are prompted
+#     on first blueprint creation (`sync: false`) — never commit them here.
+#   - API_UPSTREAM resolves to the API service's internal host:port at sync time.
+
+databases:
+  - name: acme-dataroom-postgres
+    plan: free
+    region: oregon
+    databaseName: dataroom
+    user: dataroom
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere
+
+services:
+  # ---- Backend API (NestJS) ----
+  - type: web
+    name: acme-dataroom-api
+    runtime: node
+    repo: https://github.com/acvid3/acme-data-room
+    branch: main
+    rootDir: server
+    plan: free
+    region: oregon
+    buildCommand: npm install --include=dev && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && npm run start
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: acme-dataroom-postgres
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+      - key: S3_ENDPOINT
+        value: https://s3.us-east-005.backblazeb2.com
+      - key: S3_REGION
+        value: us-east-1
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_BUCKET
+        value: acme-dataroom
+      - key: PUBLIC_BASE_URL
+        fromService:
+          name: acme-dataroom-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: CORS_ORIGINS
+        fromService:
+          name: acme-dataroom-web
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
+        sync: false
+      - key: GMAIL_FROM
+        sync: false
+
+  # ---- Gateway: nginx serving the built frontend + proxying /api ----
+  - type: web
+    name: acme-dataroom-web
+    runtime: docker
+    repo: https://github.com/acvid3/acme-data-room
+    branch: main
+    plan: free
+    region: oregon
+    dockerfilePath: infra/Dockerfile.gateway
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      - key: API_UPSTREAM
+        fromService:
+          name: acme-dataroom-api
+          type: web
+          property: hostport
+      - key: PORT
+        value: "10000"

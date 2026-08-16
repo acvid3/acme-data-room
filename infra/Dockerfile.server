@@ -1,0 +1,21 @@
+FROM node:20-bookworm-slim AS build
+
+WORKDIR /app
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+COPY server/package*.json ./
+RUN npm install --include=dev
+COPY server/ ./
+RUN NODE_OPTIONS=--max-old-space-size=2048 npx prisma generate && NODE_OPTIONS=--max-old-space-size=2048 npm run build
+
+FROM node:20-bookworm-slim AS runtime
+
+ENV NODE_ENV=production
+WORKDIR /app
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package*.json ./
+COPY --from=build /app/prisma ./prisma
+COPY --from=build /app/dist ./dist
+
+EXPOSE 4000
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]

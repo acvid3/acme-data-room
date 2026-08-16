@@ -1,0 +1,106 @@
+# Local one-command stack for Acme Data Room.
+#
+#   docker compose -f infra/docker-compose.yml up --build
+#
+# Starts Postgres, MinIO, the NestJS API and the Vite frontend together.
+# Override any value below via a .env file next to this compose file
+# (see `docker compose --env-file` docs) or shell environment.
+#
+# URLs after startup:
+#   API:        http://localhost:4000   (register via /api/auth/register)
+#   Frontend:   http://localhost:5173
+#   MinIO UI:   http://localhost:9001   (minioadmin / minioadmin)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dataroom}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dataroom}
+      POSTGRES_DB: ${POSTGRES_DB:-dataroom}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dataroom} -d ${POSTGRES_DB:-dataroom}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin}; do sleep 2; done;
+      mc mb --ignore-existing local/${S3_BUCKET:-acme-dataroom}
+      "
+
+  server:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.server
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dataroom}:${POSTGRES_PASSWORD:-dataroom}@postgres:5432/${POSTGRES_DB:-dataroom}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-84429a95257e09d2a4559b27fb7389fa6daef3c0948f999cc21177aba659536e}
+      PORT: 4000
+      NODE_ENV: development
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-acme-dataroom}
+      CORS_ORIGINS: http://localhost:5173
+      PUBLIC_BASE_URL: http://localhost:5173
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  # One-origin gateway: serves the built frontend and proxies /api to the API,
+  # so the auth cookie is same-site. http://localhost:5173 is the single entry point.
+  gateway:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.gateway
+    environment:
+      API_UPSTREAM: server:4000
+      PORT: 80
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
+
+  # Optional: Vite dev server with HMR (not needed when using the gateway).
+  client:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.client
+    environment:
+      VITE_API_BASE: http://localhost:5173/api
+    ports:
+      - "5174:5173"
+    depends_on:
+      - server
+
+volumes:
+  pgdata:
+  miniodata:
