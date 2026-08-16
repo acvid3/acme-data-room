@@ -5,6 +5,9 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # Allow uploads up to the API limit (server default 50MB); nginx default is 1MB.
+    client_max_body_size 55m;
+
     # Resolver for runtime DNS. Render: public DNS. Compose: Docker's built-in DNS.
     resolver ${RESOLVER} valid=30s;
 
