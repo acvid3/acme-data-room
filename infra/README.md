@@ -36,6 +36,12 @@ docker compose -f infra/docker-compose.yml down
 
 ## Вариант 2 — Деплой на Render
 
+Архитектура деплоя — **один origin**: nginx-шлюз `acme-dataroom-web` раздаёт
+собранный фронтенд и проксирует `/api` на API-сервис. Браузер общается только
+со шлюзом, поэтому auth-cookie (`SameSite=Lax`) сохраняется и работает —
+разнесение фронта и API на разные поддомены её ломает (Chrome блокирует
+`SameSite=Lax` куку на кросс-поддоменный запрос).
+
 ### Способ A — скрипт (рекомендуется, одна команда)
 
 ```bash
@@ -46,7 +52,7 @@ docker compose -f infra/docker-compose.yml down
 
 - PostgreSQL `acme-dataroom-postgres`
 - Web service (API) `acme-dataroom-api`
-- Static site (frontend) `acme-dataroom-web`
+- Gateway (nginx + frontend) `acme-dataroom-web`
 
 Требует переменных из корневого `.env` (подхватываются автоматически) или окружения:
 
@@ -59,35 +65,31 @@ GMAIL_*/GOOGLE_*  # опционально (email OTP)
 
 Скрипт использует только Node.js (в репозитории он уже есть), **python/jq не нужны**.
 
-Первый деплой ставит сервисы, затем скрипт подставляет реальные URL
-(`VITE_API_BASE`, `CORS_ORIGINS`, `PUBLIC_BASE_URL`) и передеплоит, чтобы cookie-авторизация
-и share-ссылки работали end to end.
+Gateway проксирует `/api` на публичный URL API (`API_HOST`), т.к. free-план Render
+не даёт private-network ingress, а порт 10000 для него зарезервирован.
 
 ### Способ B — Blueprint `render.yaml`
 
 - Render Dashboard → **New Blueprint Instance** → выбрать репозиторий → указать `infra/render.yaml`
   (или перенести файл в корень как `render.yaml`).
 
-Секреты (`S3_ACCESS_KEY`, `S3_SECRET_KEY`, `GMAIL_*`, `GOOGLE_*`, `CORS_ORIGINS`, `VITE_API_BASE`)
+Секреты (`S3_ACCESS_KEY`, `S3_SECRET_KEY`, `GMAIL_*`, `GOOGLE_*`)
 запросятся при первом создании (`sync: false`) — значения не попадают в git.
-
-> Ограничение render.yaml: `VITE_API_BASE` и `CORS_ORIGINS` зависят от runtime-URL
-> друг друга и не вычисляются внутри blueprint. При использовании dashboard-флоу
-> задайте их после первого деплоя:
-> `VITE_API_BASE = https://<api-host>/api`, `CORS_ORIGINS = https://<web-host>`.
-> Скрипт из способа A делает это автоматически.
+Внутри blueprint `API_HOST`/`CORS_ORIGINS`/`PUBLIC_BASE_URL` резолвятся через
+`fromService` + `RENDER_EXTERNAL_*` переменные Render.
 
 ## Как это устроено
 
-- `docker-compose.yml` + `Dockerfile.server` + `Dockerfile.client` — локальный стек.
-  Server-образ в рантайме запускает `prisma migrate deploy` перед стартом приложения.
-- `render.yaml` — декларативный blueprint для Render (Postgres + API + static site).
+- `docker-compose.yml` + `Dockerfile.server` + `Dockerfile.client` + `Dockerfile.gateway`
+  — локальный стек. Server-образ в рантайме запускает `prisma migrate deploy`.
+  Gateway (nginx) отдаёт фронт на `http://localhost:5173` и проксирует `/api` на `server:4000`.
+- `render.yaml` — декларативный blueprint для Render (Postgres + API + gateway).
 - `render-deploy.sh` — идемпотентный деплой через Render API с автовязкой URL.
 
 ## Текущий деплой на Render
 
-- Frontend: https://acme-dataroom-web.onrender.com
-- Backend:  https://acme-dataroom-api-16fy.onrender.com
+- App (единый origin): https://acme-dataroom-web.onrender.com
+- API (напрямую):       https://acme-dataroom-api-16fy.onrender.com
 - Database: Postgres `acme-dataroom-postgres` (plan free, region oregon)
 
 Обновляется повторным запуском `./infra/render-deploy.sh`.
