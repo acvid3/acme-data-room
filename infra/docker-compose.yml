@@ -82,7 +82,9 @@ services:
       context: ..
       dockerfile: infra/Dockerfile.gateway
     environment:
-      API_UPSTREAM: server:4000
+      API_HOST: server:4000
+      API_SCHEME: http
+      RESOLVER: 127.0.0.11
       PORT: 80
     ports:
       - "5173:80"

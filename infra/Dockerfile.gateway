@@ -9,6 +9,11 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 
+# Only substitute these env vars in the template (regex). Everything else
+# ($host, $remote_addr, ...) is an nginx runtime variable and stays intact.
+ENV NGINX_ENVSUBST_FILTER='API_HOST|API_SCHEME|PORT|RESOLVER'
+ENV RESOLVER='8.8.8.8 1.1.1.1'
+
 COPY --from=client-build /app/dist /usr/share/nginx/html
 COPY infra/nginx.conf.template /etc/nginx/templates/default.conf.template
 

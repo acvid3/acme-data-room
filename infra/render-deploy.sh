@@ -21,8 +21,8 @@
 # The gateway serves the built frontend AND proxies /api to the API over
 # Render's private network, so the whole app lives on ONE origin. That keeps
 # the SameSite=Lax auth cookie working (frontend+API on separate subdomains
-# breaks it). After the first deploy the script wires API_UPSTREAM / CORS_ORIGINS /
-# PUBLIC_BASE_URL and redeploys.
+# breaks it). Env vars are wired BEFORE the first deploy so nginx always has
+# API_UPSTREAM set.
 
 set -euo pipefail
 
@@ -98,7 +98,7 @@ wait_deploy() {
     st=$(render_get "/services/$service_id/deploys/$deploy_id" | jqget status)
     case "$st" in
       live) say "$what is live."; return 0;;
-      build_failed|deploy_failed|canceled) die "$what deploy failed (status=$st)";;
+      build_failed|deploy_failed|update_failed|canceled) die "$what deploy failed (status=$st)";;
     esac
     sleep 10
   done
@@ -221,8 +221,9 @@ JSON
 else
   say "Adopting existing API service: $API_SERVICE_ID"
 fi
-API_INTERNAL_HOST="$API_SERVICE_ID"
-say "API internal host: $API_INTERNAL_HOST"
+API_URL=$(render_get "/services/$API_SERVICE_ID" | jqget serviceDetails.url)
+[ -n "$API_URL" ] || die "Could not resolve API public URL."
+say "API URL: $API_URL"
 
 # ---------------------------------------------------------------- Gateway service
 # If an old static_site occupies the gateway name, remove it (can't change type in place).
@@ -231,7 +232,6 @@ if [ "$EXISTING_TYPE" = "static_site" ]; then
   OLD_ID=$(service_id_by_name "$WEB_SERVICE_NAME")
   say "Replacing legacy static site '$WEB_SERVICE_NAME' with the nginx gateway (removing $OLD_ID)..."
   render_delete "/services/$OLD_ID" >/dev/null
-  # wait until it's gone so the name frees up
   for _ in $(seq 1 20); do
     [ -z "$(service_id_by_name "$WEB_SERVICE_NAME")" ] && break
     sleep 5
@@ -268,22 +268,53 @@ else
   say "Adopting existing gateway service: $GATEWAY_ID"
 fi
 
-# ---------------------------------------------------------------- first deploy (both)
-say "Deploying API and gateway (first pass)..."
+# ---------------------------------------------------------------- wire env vars (BEFORE first deploy)
+say "Wiring env vars before first deploy..."
+render_put_env "/services/$API_SERVICE_ID/env-vars" "$(cat <<JSON
+[
+  {"key": "DATABASE_URL", "value": "$DATABASE_URL"},
+  {"key": "JWT_SECRET", "value": "$JWT_SECRET"},
+  {"key": "NODE_ENV", "value": "production"},
+  {"key": "S3_ENDPOINT", "value": "$S3_ENDPOINT"},
+  {"key": "S3_REGION", "value": "$S3_REGION"},
+  {"key": "S3_ACCESS_KEY", "value": "$S3_ACCESS_KEY"},
+  {"key": "S3_SECRET_KEY", "value": "$S3_SECRET_KEY"},
+  {"key": "S3_BUCKET", "value": "$S3_BUCKET"}
+]
+JSON
+)" >/dev/null
+
+# Gateway proxies /api to the API's public URL. The browser only ever talks to
+# the gateway (ONE origin), so the SameSite=Lax cookie works; the gateway reaches
+# the API over the public internet (Render's free plan doesn't allow private
+# network ingress, and port 10000 is reserved anyway).
+API_HOST=${API_URL#https://}
+API_HOST=${API_HOST#http://}
+render_put_env "/services/$GATEWAY_ID/env-vars" "$(cat <<JSON
+[
+  {"key": "API_HOST", "value": "$API_HOST"},
+  {"key": "API_SCHEME", "value": "https"},
+  {"key": "RESOLVER", "value": "8.8.8.8 1.1.1.1"}
+]
+JSON
+)" >/dev/null
+
+# ---------------------------------------------------------------- deploy (both)
+say "Deploying API and gateway..."
 API_DEPLOY_ID=$(render_post "/services/$API_SERVICE_ID/deploys" '{}' | jqget id)
 GATEWAY_DEPLOY_ID=$(render_post "/services/$GATEWAY_ID/deploys" '{}' | jqget id)
 
 wait_deploy "$API_SERVICE_ID" "$API_DEPLOY_ID" "API"
 wait_deploy "$GATEWAY_ID" "$GATEWAY_DEPLOY_ID" "gateway"
 
-# ---------------------------------------------------------------- resolve URLs
+# ---------------------------------------------------------------- resolve URLs + CORS
 API_URL=$(render_get "/services/$API_SERVICE_ID" | jqget serviceDetails.url)
 WEB_URL=$(render_get "/services/$GATEWAY_ID" | jqget serviceDetails.url)
-say "API URL:     $API_URL"
-say "Web URL:     $WEB_URL"
+say "API URL: $API_URL"
+say "Web URL: $WEB_URL"
 
-# ---------------------------------------------------------------- wire env vars
-say "Wiring env vars (one-origin setup)..."
+# CORS_ORIGINS / PUBLIC_BASE_URL depend on the gateway's public URL; update + redeploy API.
+say "Setting CORS_ORIGINS / PUBLIC_BASE_URL on the API..."
 render_put_env "/services/$API_SERVICE_ID/env-vars" "$(cat <<JSON
 [
   {"key": "DATABASE_URL", "value": "$DATABASE_URL"},
@@ -300,22 +331,9 @@ render_put_env "/services/$API_SERVICE_ID/env-vars" "$(cat <<JSON
 JSON
 )" >/dev/null
 
-# Gateway proxies /api to the API over Render's private network (port 10000).
-render_put_env "/services/$GATEWAY_ID/env-vars" "$(cat <<JSON
-[
-  {"key": "API_UPSTREAM", "value": "$API_INTERNAL_HOST:10000"},
-  {"key": "PORT", "value": "10000"}
-]
-JSON
-)" >/dev/null
-
-# ---------------------------------------------------------------- final deploy
-say "Deploying API and gateway (final pass with wired env)..."
+say "Redeploying API to apply CORS_ORIGINS / PUBLIC_BASE_URL..."
 API_DEPLOY_ID=$(render_post "/services/$API_SERVICE_ID/deploys" '{}' | jqget id)
-GATEWAY_DEPLOY_ID=$(render_post "/services/$GATEWAY_ID/deploys" '{}' | jqget id)
-
 wait_deploy "$API_SERVICE_ID" "$API_DEPLOY_ID" "API"
-wait_deploy "$GATEWAY_ID" "$GATEWAY_DEPLOY_ID" "gateway"
 
 say "Done!"
 printf '\n  App (single origin): %s\n  API (direct):        %s\n  Database:            %s\n\n' "$WEB_URL" "$API_URL" "$DATABASE_URL"

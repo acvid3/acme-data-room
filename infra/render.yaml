@@ -92,10 +92,14 @@ services:
     dockerContext: .
     healthCheckPath: /
     envVars:
-      - key: API_UPSTREAM
+      - key: API_HOST
         fromService:
           name: acme-dataroom-api
           type: web
-          property: hostport
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: API_SCHEME
+        value: "https"
+      - key: RESOLVER
+        value: "8.8.8.8 1.1.1.1"
       - key: PORT
         value: "10000"
