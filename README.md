@@ -28,9 +28,25 @@ Full task text: [take-home assignment](https://docs.google.com/document/d/1SPNR1
 
 ## Stack
 
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
+![React Router](https://img.shields.io/badge/React_Router-CA4245?style=for-the-badge&logo=reactrouter&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
+![Amazon S3](https://img.shields.io/badge/Amazon_S3-569A31?style=for-the-badge&logo=amazons3&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![nginx](https://img.shields.io/badge/nginx-009639?style=for-the-badge&logo=nginx&logoColor=white)
+![Render](https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)
+![Gmail](https://img.shields.io/badge/Gmail-EA4335?style=for-the-badge&logo=gmail&logoColor=white)
+
 | Layer      | Tech                                                              |
 | ---------- | ----------------------------------------------------------------- |
-| Frontend   | React 18 + TypeScript + Vite + Tailwind + shadcn-style components |
+| Frontend   | React 18 + TypeScript + Vite 5 + Tailwind + shadcn-style components, React Router v6, lucide-react |
 | Backend    | NestJS 10 + Prisma + PostgreSQL                                   |
 | File store | S3-compatible object storage (MinIO locally, Backblaze B2 in prod)|
 | Auth       | Email/password + 6-digit email OTP; httpOnly JWT cookie           |
@@ -50,7 +66,14 @@ Everything in the task's functional requirements is implemented:
   access including nested content. Two modes: a public link (token, anyone logged in with
   the link; requires the room to be `PUBLIC`) and a permissioned share (only granted
   users). The owner can revoke either at any time.
-- **Search** — case-insensitive search across folder and file names within a Data Room.
+- **Search** — case-insensitive search across folder and file names within a Data Room
+  (server-side for owned rooms; client-side within the current folder on public links).
+- **Listing UX** — grid/list toggle (persisted in `localStorage`), sort (name/updated/size),
+  filter (all/folders/files), pagination (`limit`/`offset` + `total`); drag-and-drop moves
+  files/folders onto a folder, with an `UpLevelCard` to move to the parent and auto-scroll
+  while dragging near an edge.
+- **Public link viewer** — read-only drill-down of a shared room/folder/file with
+  breadcrumbs, members panel (emails masked), sort/filter/view toggle, and preview/download.
 - **Room presence** — who is currently viewing a room (in-memory, 5-min TTL).
 - **Data Rooms** — create/rename/delete your own rooms, view rooms shared with you,
   private-vs-public visibility.
@@ -59,27 +82,39 @@ Everything in the task's functional requirements is implemented:
 
 ```
 acme-data-room/
-├── client/            # React frontend (Vite + Tailwind + shadcn-style components)
-│   └── src/components/blocks/  # Auth, Dashboard, RoomViewer, ShareDialog,
-│                               # PublicViewer, FileViewer, Profile, ...
-├── server/            # NestJS backend (REST API, Prisma, S3 uploads)
-│   ├── routes/        # @Controller HTTP adapters + DTO validation
-│   ├── controller/    # request handling → services
-│   ├── services/      # business logic (auth, rooms, folders, files, shares,
-│   │                  #   public links, access, presence, verification)
-│   ├── repository/    # data access (Prisma)
-│   ├── integrations/  # external API adapters (S3 storage, Gmail email)
-│   ├── middleware/    # AuthGuard, RateLimitMiddleware, request logging
-│   ├── dto/           # class-validator DTOs
-│   ├── interfaces/    # response/entity TS types
-│   ├── prisma/        # schema + migrations
-│   └── tests/         # server tests + TESTS.md (every test described)
-└── infra/             # local stack + Render deployment
-    ├── docker-compose.yml   # one-command local stack (Postgres + MinIO + API + gateway)
+├── client/                 # React frontend (Vite 5 + Tailwind + shadcn-style)
+│   └── src/
+│       ├── main.tsx        # entry: Router + AuthProvider
+│       ├── App.tsx         # route table
+│       ├── config.ts       # API_BASE
+│       ├── types.ts        # API-facing types
+│       ├── api/            # fetch wrapper (credentials: include) + typed endpoint groups
+│       ├── contexts/       # auth (session state), dnd (drag-and-drop state)
+│       ├── hooks/          # useRoomContents, useFolderPath, useUploads, useViewMode, ...
+│       ├── utils/          # cn, format, sort
+│       └── components/
+│           ├── shared/     # shadcn-style primitives (button, dialog, pagination, ...)
+│           ├── blocks/     # feature sections (Auth, RoomViewer, ShareDialog, PublicViewer, ...)
+│           └── icons/      # brand logo
+├── server/                 # NestJS backend (REST API, Prisma, S3 uploads)
+│   ├── routes/             # @Controller HTTP adapters + DTO validation
+│   ├── controller/         # thin proxies to services
+│   ├── services/           # business logic (auth, rooms, folders, files, shares,
+│   │                       #   public links, access, presence, verification)
+│   ├── repository/         # data access (Prisma)
+│   ├── integrations/       # external API adapters (S3 storage, Gmail email)
+│   ├── middleware/         # AuthGuard, RateLimitMiddleware, request logging
+│   ├── dto/                # class-validator DTOs
+│   ├── interfaces/         # response/entity TS types + DI tokens (FILE_STORAGE, EMAIL_SERVICE)
+│   ├── utils/              # helpers (name-conflicts, pagination, shareable, prisma-mappers)
+│   ├── prisma/             # schema + migrations
+│   └── tests/              # server tests (101, run via npm test)
+└── infra/                  # local stack + Render deployment
+    ├── docker-compose.yml  # one-command local stack (Postgres + MinIO + API + gateway)
     ├── Dockerfile.server|.client|.gateway
-    ├── nginx.conf.template  # single-origin gateway (serves SPA, proxies /api)
-    ├── render.yaml          # Render Blueprint (Postgres + API + nginx gateway)
-    └── render-deploy.sh     # idempotent deploy via the Render API
+    ├── nginx.conf.template # single-origin gateway (serves SPA, proxies /api)
+    ├── render.yaml         # Render Blueprint (Postgres + API + nginx gateway)
+    └── render-deploy.sh    # idempotent deploy via the Render API
 ```
 
 ## Local development
@@ -108,10 +143,11 @@ not configured locally) — enter it on the confirmation step. Stop with
 Requirements: Node 20+, Docker, npm.
 
 ```bash
-# 1. Postgres + MinIO on the ports server/.env expects (5433 / 9000, 9001)
+# 1. Postgres + MinIO (compose maps Postgres to host port 5433, MinIO to 9000/9001)
 docker compose -f infra/docker-compose.yml up -d postgres minio minio-init
 
-# 2. Env files
+# 2. Env files — then point DATABASE_URL at host port 5433 (compose default),
+#    e.g. postgresql://dataroom:dataroom@localhost:5433/dataroom?schema=public
 cp .env.example .env
 cp .env.example server/.env    # API reads DATABASE_URL, S3_*, JWT_SECRET, GMAIL_*
 
@@ -123,7 +159,7 @@ npm run start:dev
 #   MinIO console → http://localhost:9001 (minioadmin / minioadmin)
 
 # 4. Frontend (separate terminal) — talks to :4000 over CORS (CORS_ORIGINS)
-#    with same-site cookies; the gateway origin is :5173
+#    with same-site cookies; the Vite origin is :5173
 cd client && npm install && npm run dev
 
 # 5. Server tests (build + reset test DB + boot compiled server + HTTP tests)
@@ -135,9 +171,9 @@ cd server && npm test
 > returns `sent: false` and the code is included in the API response, so local flows work
 > out of the box.
 
-Every server test is documented in `server/tests/TESTS.md` — what it does, what it verifies,
-and the expected error/response shape. The suite covers auth, data rooms, folders, files,
-shares, and public links, including read-only enforcement for share recipients.
+The server test suite (`server/tests/*.test.ts`, 101 tests) covers auth, data rooms,
+folders, files, shares, and public links, including read-only enforcement for share
+recipients.
 
 ## Design decisions
 
@@ -149,9 +185,10 @@ shares, and public links, including read-only enforcement for share recipients.
   invalid input returns 400, never a 500 crash. Auth routes are rate-limited
   (`RateLimitMiddleware`, 100 req/60 s per IP).
 - **Upload/download.** Uploads are `multipart/form-data` (`POST /api/files`) with a MIME
-  allow-list and `MAX_FILE_SIZE_BYTES` limit; the client reports real per-file progress via
-  XHR. Downloads return a short-lived presigned GET URL, so file bytes never proxy through
-  the API. Objects live at `rooms/{roomId}/{uuid}/{name}`.
+  allow-list and `MAX_FILE_SIZE_BYTES` limit (default 50MB); the client reports real
+  per-file progress via XHR. Downloads return a short-lived presigned GET URL (1-hour
+  expiry), served inline for `<img>`/`<video>`/`<iframe>` previews, so file bytes never
+  proxy through the API. Objects live at `rooms/{roomId}/{uuid}/{name}`.
 - **Email-OTP auth.** Registration, login, password reset, and account deletion all require
   a 6-digit code from `VerificationCode` (10-min expiry, 5 attempts, 5 codes/hour/email).
   On success the API sets an httpOnly JWT cookie (`access_token`, 7 days, `SameSite=Lax`,
@@ -231,6 +268,7 @@ erDiagram
         string token UK
         ShareableType shareableType
         string shareableId
+        datetime createdAt
     }
     VerificationCode {
         string id PK
@@ -238,6 +276,7 @@ erDiagram
         string code
         string purpose
         int attempts
+        datetime createdAt
         datetime expiresAt
     }
 ```
@@ -276,8 +315,7 @@ cycle rather than just scaffolding: architecture, implementation, test generatio
 code audit, bug fixing, refactoring, and vulnerability hunting/debugging. Where AI was used:
 
 - **Workspace & scaffolding.** Initial project skeleton (NestJS app, Prisma schema, route
-  surfaces) and the docs (`TESTS.md`) were drafted by the agent
-  from the task text.
+  surfaces) was drafted by the agent from the task text.
 - **Backend implementation.** NestJS modules (auth, data rooms, folders, files, shares,
   public links) and services/repositories were written iteratively with the agent:
   bottom-up from the database (Prisma schema + migrations) through repositories → services
