@@ -27,32 +27,34 @@ export default function Landing() {
 
     return (
         <div className="flex min-h-screen flex-col">
-            <header className="border-b">
-                <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-                    <Link to="/" className="flex items-center gap-2 font-semibold">
-                        <Logo className="size-5" />
-                        Acme Data Room
+            <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
+                <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4">
+                    <Link to="/" className="flex min-w-0 items-center gap-2 font-semibold">
+                        <Logo className="size-5 shrink-0" />
+                        <span className="hidden truncate sm:inline">Acme Data Room</span>
                     </Link>
-                    <nav className="flex items-center gap-2">
+                    <nav className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                         {user ? (
                             <Link to="/dashboard">
-                                <Button>
+                                <Button size="sm">
                                     <ArrowRight className="size-4" />
-                                    Go to dashboard
+                                    <span className="hidden sm:inline">Dashboard</span>
+                                    <span className="sm:hidden">Go</span>
                                 </Button>
                             </Link>
                         ) : (
                             <>
                                 <Link to="/login">
-                                    <Button variant="ghost">
+                                    <Button variant="ghost" size="sm">
                                         <LogIn className="size-4" />
-                                        Sign in
+                                        <span className="hidden sm:inline">Sign in</span>
                                     </Button>
                                 </Link>
                                 <Link to="/register">
-                                    <Button>
+                                    <Button size="sm">
                                         <UserPlus className="size-4" />
-                                        Get started
+                                        <span className="hidden sm:inline">Get started</span>
+                                        <span className="sm:hidden">Join</span>
                                     </Button>
                                 </Link>
                             </>
