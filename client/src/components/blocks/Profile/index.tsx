@@ -19,7 +19,7 @@ export default function Profile() {
                     <UserRound className="size-5" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-semibold">Profile</h1>
+                    <h1 className="font-display text-2xl font-semibold tracking-tight">Profile</h1>
                     <p className="text-sm text-muted-foreground">Manage your account details.</p>
                 </div>
             </div>
@@ -51,7 +51,7 @@ export default function Profile() {
                         <ShieldAlert className="size-5" />
                     </div>
                     <div>
-                        <h2 className="flex items-center gap-1.5 text-lg font-semibold">
+                        <h2 className="flex items-center gap-1.5 font-display text-lg font-semibold tracking-tight">
                             <AlertTriangle className="size-4 text-destructive" />
                             Danger zone
                         </h2>

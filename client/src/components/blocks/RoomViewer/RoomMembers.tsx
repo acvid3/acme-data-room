@@ -11,7 +11,7 @@ export default function RoomMembers({ room }: RoomMembersProps) {
     const count = room.userCount ?? members.length
 
     return (
-        <aside className="w-full max-w-xs shrink-0 space-y-4 rounded-lg border bg-card p-4">
+        <aside className="w-full min-w-0 shrink-0 space-y-4 rounded-lg border bg-card p-4 md:max-w-xs">
             <div className="flex items-center gap-2">
                 <Users className="size-4 text-muted-foreground" />
                 <h2 className="text-sm font-medium">People</h2>

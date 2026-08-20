@@ -61,7 +61,7 @@ export default function ForgotPasswordForm() {
     return (
         <AuthShell>
             {done ? (
-                <div className="space-y-4 rounded-lg border bg-card p-6 text-center shadow-sm">
+                <div className="relative space-y-4 overflow-hidden rounded-lg border border-border bg-card p-6 text-center shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-primary/40">
                     <p className="font-medium">Password reset</p>
                     <p className="text-sm text-muted-foreground">
                         Your password has been updated. You can now sign in.
@@ -73,7 +73,7 @@ export default function ForgotPasswordForm() {
             ) : step === 'email' ? (
                 <form
                     onSubmit={handleEmail}
-                    className="space-y-4 rounded-lg border bg-card p-6 shadow-sm"
+                    className="relative space-y-4 overflow-hidden rounded-lg border border-border bg-card p-6 shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-primary/40"
                 >
                     <div className="space-y-1 text-center">
                         <p className="font-medium">Forgot password?</p>
@@ -107,7 +107,7 @@ export default function ForgotPasswordForm() {
             ) : (
                 <form
                     onSubmit={handleReset}
-                    className="space-y-4 rounded-lg border bg-card p-6 shadow-sm"
+                    className="relative space-y-4 overflow-hidden rounded-lg border border-border bg-card p-6 shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-primary/40"
                 >
                     <div className="space-y-1 text-center">
                         <p className="font-medium">Reset password</p>

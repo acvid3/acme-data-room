@@ -59,6 +59,8 @@ export const roomApi = {
     rename: (id: string, name: string) => api.patch<DataRoom>(`/data-rooms/${id}`, { name }),
     setVisibility: (id: string, visibility: RoomVisibility) =>
         api.patch<DataRoom>(`/data-rooms/${id}`, { visibility }),
+    update: (id: string, input: { name?: string; description?: string; visibility?: RoomVisibility }) =>
+        api.patch<DataRoom>(`/data-rooms/${id}`, input),
     remove: (id: string) => api.delete<{ ok: boolean }>(`/data-rooms/${id}`),
     contents: (roomId: string, folderId?: string, limit?: number, offset?: number) => {
         const params = new URLSearchParams()
@@ -79,6 +81,11 @@ export const roomApi = {
 
 export const userApi = {
     search: (email: string) => api.get<User[]>(`/users?email=${encodeURIComponent(email)}`),
+}
+
+export const contactApi = {
+    submit: (input: { name: string; email: string; message: string }) =>
+        api.post<{ sent: boolean }>('/contact', input),
 }
 
 export const fileApi = {

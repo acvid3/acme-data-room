@@ -45,19 +45,20 @@ export function DialogContent({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} aria-hidden />
+            <div className="absolute inset-0 bg-foreground/40 backdrop-blur-[2px]" onClick={() => setOpen(false)} aria-hidden />
             <div
                 role="dialog"
                 aria-modal="true"
                 className={cn(
-                    'relative z-10 w-full max-w-md rounded-lg border bg-background p-6 shadow-lg',
+                    'relative z-10 w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-xl shadow-foreground/5',
+                    'before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-primary/40',
                     className,
                 )}
             >
                 {children}
                 <button
                     onClick={() => setOpen(false)}
-                    className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none"
+                    className="absolute right-4 top-4 rounded-sm opacity-60 transition-opacity hover:opacity-100 focus:outline-none"
                     aria-label="Close"
                 >
                     <X className="size-4" />
@@ -72,7 +73,7 @@ export function DialogHeader({ children }: { children: React.ReactNode }) {
 }
 
 export function DialogTitle({ children }: { children: React.ReactNode }) {
-    return <h2 className="text-lg font-semibold leading-none tracking-tight">{children}</h2>
+    return <h2 className="font-display text-xl font-semibold leading-none tracking-tight">{children}</h2>
 }
 
 export function DialogDescription({ children }: { children: React.ReactNode }) {

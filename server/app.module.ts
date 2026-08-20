@@ -11,6 +11,7 @@ import { SharesRoutes } from './routes/shares.routes';
 import { PublicLinksRoutes } from './routes/public-links.routes';
 import { UsersRoutes } from './routes/users.routes';
 import { GmailAuthRoutes } from './routes/gmail-auth.routes';
+import { ContactRoutes } from './routes/contact.routes';
 import { PrismaService } from './services/prisma.service';
 import { AuthService } from './services/auth.service';
 import { VerificationService } from './services/verification.service';
@@ -51,6 +52,7 @@ import { VerificationCodeRepository } from './repository/verification-code.repos
         PublicLinksRoutes,
         UsersRoutes,
         GmailAuthRoutes,
+        ContactRoutes,
     ],
     providers: [
         PrismaService,
@@ -96,6 +98,6 @@ import { VerificationCodeRepository } from './repository/verification-code.repos
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
         consumer.apply(RequestLoggerMiddleware).forRoutes('*');
-        consumer.apply(RateLimitMiddleware).forRoutes(AuthRoutes);
+        consumer.apply(RateLimitMiddleware).forRoutes(AuthRoutes, ContactRoutes);
     }
 }

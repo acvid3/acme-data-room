@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useParams } from 'react-router-dom'
-import { FileSearch, FileText, FolderPlus, FolderOpen, Loader2, Search, Share2, Users, X } from 'lucide-react'
+import { FileSearch, FileText, FolderPlus, FolderOpen, Loader2, Pencil, Search, Share2, Users, X } from 'lucide-react'
 import { ApiError } from '@/api/client'
 import { fileApi, folderApi, roomApi } from '@/api'
 import { DndProvider, useDnd } from '@/contexts/dnd'
@@ -24,6 +24,7 @@ import RenameDialog from './RenameDialog'
 import DeleteDialog from './DeleteDialog'
 import UploadButton from './UploadButton'
 import ShareDialog from '@/components/blocks/ShareDialog'
+import EditRoomDialog from '@/components/blocks/EditRoomDialog'
 import FilePreviewDialog from '@/components/blocks/FilePreviewDialog'
 import UpLevelCard from './UpLevelCard'
 import { sortItems, type ContentSort } from '@/utils/sort'
@@ -50,6 +51,7 @@ function RoomViewerContent() {
     const [deleteTarget, setDeleteTarget] = React.useState<ItemTarget | null>(null)
     const [previewFile, setPreviewFile] = React.useState<FileMeta | null>(null)
     const [shareOpen, setShareOpen] = React.useState(false)
+    const [editOpen, setEditOpen] = React.useState(false)
     const { view, setView } = useViewMode('contents')
     const [sort, setSort] = React.useState<ContentSort>('name')
     const [direction, setDirection] = React.useState<SortDirection>('asc')
@@ -156,16 +158,22 @@ function RoomViewerContent() {
                     {!readOnly && (
                         <>
                             <UploadButton dataRoomId={roomId} folderId={folderId ?? null} onUploaded={reload} />
-                            <Button onClick={() => setCreateOpen(true)}>
+                            <Button onClick={() => setCreateOpen(true)} className="px-2.5 sm:px-4">
                                 <FolderPlus className="size-4" />
-                                New folder
+                                <span className="hidden sm:inline">New folder</span>
                             </Button>
                         </>
                     )}
                     {!readOnly && (
-                        <Button variant="outline" onClick={() => setShareOpen(true)} disabled={!room}>
+                        <Button variant="outline" onClick={() => setShareOpen(true)} disabled={!room} className="px-2.5 sm:px-4">
                             <Share2 className="size-4" />
-                            Share
+                            <span className="hidden sm:inline">Share</span>
+                        </Button>
+                    )}
+                    {!readOnly && (
+                        <Button variant="outline" onClick={() => setEditOpen(true)} disabled={!room} className="px-2.5 sm:px-4">
+                            <Pencil className="size-4" />
+                            <span className="hidden sm:inline">Edit</span>
                         </Button>
                     )}
                     <SortMenu
@@ -383,6 +391,18 @@ function RoomViewerContent() {
                     open={shareOpen}
                     onOpenChange={setShareOpen}
                     onVisibilityChange={setRoom}
+                />
+            )}
+
+            {room && (
+                <EditRoomDialog
+                    room={room}
+                    open={editOpen}
+                    onOpenChange={setEditOpen}
+                    onUpdated={(updated) => {
+                        setRoom(updated)
+                        setEditOpen(false)
+                    }}
                 />
             )}
 

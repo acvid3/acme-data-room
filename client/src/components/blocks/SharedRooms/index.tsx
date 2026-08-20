@@ -41,7 +41,7 @@ export default function SharedRooms() {
                         <Share2 className="size-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-semibold">Shared with me</h1>
+                        <h1 className="font-display text-2xl font-semibold tracking-tight">Shared with me</h1>
                         <p className="text-sm text-muted-foreground">
                             Data rooms others have granted you read-only access to.
                         </p>

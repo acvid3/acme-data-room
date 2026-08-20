@@ -56,12 +56,12 @@ export default function UploadButton({ dataRoomId, folderId, onUploaded }: Uploa
                     if (event.dataTransfer.files.length) handleFiles(event.dataTransfer.files)
                 }}
                 className={cn(
-                    'flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-foreground',
+                    'flex h-9 cursor-pointer items-center gap-2 rounded-md border border-dashed px-2.5 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-foreground sm:px-3',
                     dragging && 'border-primary bg-primary/5 text-foreground',
                 )}
             >
                 <Upload className="size-4" />
-                Upload
+                <span className="hidden sm:inline">Upload</span>
             </div>
 
             {activeItems.length > 0 && (

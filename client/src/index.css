@@ -4,26 +4,30 @@
 
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 222.2 84% 4.9%;
+        --background: 44 22% 96%;
+        --foreground: 228 18% 14%;
         --card: 0 0% 100%;
-        --card-foreground: 222.2 84% 4.9%;
+        --card-foreground: 228 18% 14%;
         --popover: 0 0% 100%;
-        --popover-foreground: 222.2 84% 4.9%;
-        --primary: 221.2 83.2% 53.3%;
-        --primary-foreground: 210 40% 98%;
-        --secondary: 210 40% 96.1%;
-        --secondary-foreground: 222.2 47.4% 11.2%;
-        --muted: 210 40% 96.1%;
-        --muted-foreground: 215.4 16.3% 46.9%;
-        --accent: 210 40% 96.1%;
-        --accent-foreground: 222.2 47.4% 11.2%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 210 40% 98%;
-        --border: 214.3 31.8% 91.4%;
-        --input: 214.3 31.8% 91.4%;
-        --ring: 221.2 83.2% 53.3%;
-        --radius: 0.5rem;
+        --popover-foreground: 228 18% 14%;
+        --primary: 166 40% 22%;
+        --primary-foreground: 44 30% 96%;
+        --secondary: 44 18% 91%;
+        --secondary-foreground: 166 35% 18%;
+        --muted: 44 20% 93%;
+        --muted-foreground: 222 8% 44%;
+        --accent: 44 24% 89%;
+        --accent-foreground: 166 35% 16%;
+        --destructive: 0 68% 48%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 44 14% 84%;
+        --input: 44 14% 80%;
+        --ring: 166 40% 22%;
+        --gold: 43 62% 47%;
+        --radius: 0.375rem;
+        --font-sans: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
+        --font-display: 'Schibsted Grotesk', ui-sans-serif, system-ui, sans-serif;
+        --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
     }
 
     * {
@@ -32,6 +36,19 @@
 
     body {
         @apply bg-background text-foreground antialiased;
+        font-family: var(--font-sans);
+        font-feature-settings: 'ss01', 'cv01';
+    }
+
+    ::selection {
+        background: hsl(var(--primary));
+        color: hsl(var(--primary-foreground));
+    }
+
+    h1,
+    h2,
+    h3 {
+        font-family: var(--font-display);
     }
 }
 
@@ -42,5 +59,9 @@
 
     .scrollbar-hidden::-webkit-scrollbar {
         display: none;
+    }
+
+    .text-balance {
+        text-wrap: balance;
     }
 }

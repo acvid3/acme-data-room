@@ -61,7 +61,7 @@ export default function RegisterForm() {
             {step === 'credentials' ? (
                 <form
                     onSubmit={handleCredentials}
-                    className="space-y-4 rounded-lg border bg-card p-6 shadow-sm"
+                    className="relative space-y-4 overflow-hidden rounded-lg border border-border bg-card p-6 shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-primary/40"
                 >
                     <p className="text-center text-sm text-muted-foreground">
                         Create an account to get started

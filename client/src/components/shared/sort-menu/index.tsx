@@ -57,14 +57,15 @@ export function SortMenu<T extends string>({
         <div ref={ref} className={cn('relative', className)}>
             <button
                 onClick={() => setOpen((prev) => !prev)}
-                className="flex items-center gap-1.5 rounded-md border bg-background px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                aria-label={current ? `Sort by ${current.label} — ${currentDirectionLabel}` : 'Sort'}
+                className="flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-sm text-muted-foreground shadow-sm transition-colors hover:text-foreground sm:px-3"
             >
                 <SlidersHorizontal className="size-4" />
-                Sort
-                {current && <span className="text-foreground">{currentDirectionLabel}</span>}
+                <span className="hidden sm:inline">Sort</span>
+                {current && <span className="hidden text-foreground sm:inline">{currentDirectionLabel}</span>}
             </button>
             {open && (
-                <div className="absolute right-0 top-full z-20 mt-1 min-w-52 rounded-lg border bg-popover p-1 shadow-md">
+                <div className="absolute right-0 top-full z-20 mt-1 min-w-52 rounded-md border border-border bg-popover p-1 shadow-lg">
                     {options.map((option) => (
                         <React.Fragment key={option.value}>
                             {(['asc', 'desc'] as const).map((dir) => {

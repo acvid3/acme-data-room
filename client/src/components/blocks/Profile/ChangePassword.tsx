@@ -56,7 +56,7 @@ export default function ChangePassword() {
 
     return (
         <div className="rounded-lg border bg-card p-6">
-            <h2 className="flex items-center gap-1.5 text-lg font-semibold">
+            <h2 className="flex items-center gap-1.5 font-display text-lg font-semibold tracking-tight">
                 <KeyRound className="size-4 text-muted-foreground" />
                 Change password
             </h2>

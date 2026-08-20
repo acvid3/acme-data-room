@@ -43,16 +43,17 @@ export function FilterMenu<T extends string>({
         <div ref={ref} className={cn('relative', className)}>
             <button
                 onClick={() => setOpen((prev) => !prev)}
+                aria-label={current?.label ?? 'Filter'}
                 className={cn(
-                    'flex items-center gap-1.5 rounded-md border bg-background px-2.5 py-1.5 text-sm transition-colors hover:text-foreground',
+                    'flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-sm shadow-sm transition-colors hover:text-foreground sm:px-3',
                     active ? 'text-foreground' : 'text-muted-foreground',
                 )}
             >
                 <Filter className="size-4" />
-                {current?.label}
+                <span className="hidden sm:inline">{current?.label}</span>
             </button>
             {open && (
-                <div className="absolute right-0 top-full z-20 mt-1 min-w-44 rounded-lg border bg-popover p-1 shadow-md">
+                <div className="absolute right-0 top-full z-20 mt-1 min-w-44 rounded-md border border-border bg-popover p-1 shadow-lg">
                     {options.map((option) => (
                         <button
                             key={option.value}

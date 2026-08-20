@@ -208,7 +208,7 @@ function PublicViewerContent() {
                         <FileText className="size-5" />
                     </div>
                     <div>
-                        <h1 className="text-xl font-semibold">{payload.file.name}</h1>
+                        <h1 className="font-display text-xl font-semibold tracking-tight">{payload.file.name}</h1>
                         <p className="text-sm text-muted-foreground">
                             Shared with you via public link
                         </p>
@@ -246,7 +246,7 @@ function PublicViewerContent() {
                         <Folder className="size-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-semibold">{rootName}</h1>
+                        <h1 className="font-display text-2xl font-semibold tracking-tight">{rootName}</h1>
                         <p className="text-sm text-muted-foreground">
                             Shared with you via public link
                         </p>

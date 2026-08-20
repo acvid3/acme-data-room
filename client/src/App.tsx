@@ -2,7 +2,14 @@ import { Route, Routes } from 'react-router-dom'
 import { ProtectedRoute, PublicOnlyRoute } from '@/components/shared/guards'
 import AppShell from '@/components/blocks/AppShell'
 import Auth from '@/components/blocks/Auth'
+import PublicLayout from '@/components/blocks/PublicLayout'
 import Landing from '@/components/blocks/Landing'
+import Features from '@/components/blocks/Features'
+import Security from '@/components/blocks/Security'
+import About from '@/components/blocks/About'
+import Faq from '@/components/blocks/Faq'
+import Contact from '@/components/blocks/Contact'
+import Privacy from '@/components/blocks/Privacy'
 import Dashboard from '@/components/blocks/Dashboard'
 import RoomsList from '@/components/blocks/RoomsList'
 import SharedRooms from '@/components/blocks/SharedRooms'
@@ -15,7 +22,15 @@ import NotFound from '@/components/blocks/NotFound'
 export default function App() {
     return (
         <Routes>
-            <Route path="/" element={<Landing />} />
+            <Route element={<PublicLayout />}>
+                <Route path="/" element={<Landing />} />
+                <Route path="/features" element={<Features />} />
+                <Route path="/security" element={<Security />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/faq" element={<Faq />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/privacy" element={<Privacy />} />
+            </Route>
             <Route
                 path="/login"
                 element={

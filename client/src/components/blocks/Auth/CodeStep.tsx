@@ -29,7 +29,10 @@ export default function CodeStep({
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border bg-card p-6 shadow-sm">
+        <form
+            onSubmit={handleSubmit}
+            className="relative space-y-4 overflow-hidden rounded-lg border border-border bg-card p-6 shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-primary/40"
+        >
             <div className="space-y-1 text-center">
                 <p className="font-medium">Enter the code</p>
                 <p className="text-sm text-muted-foreground">
